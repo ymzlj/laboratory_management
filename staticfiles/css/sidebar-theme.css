@@ -1,0 +1,66 @@
+:root {
+  /* 尺寸变量 */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 72px;
+  --header-height: 64px;
+  
+  /* 动效变量 */
+  --transition-speed: 0.3s;
+  --transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* 亮色主题 (Light Theme) - 默认 */
+  --sidebar-bg: #FFFFFF;
+  --sidebar-bg-rgb: 255, 255, 255;
+  --sidebar-border: #E2E8F0; /* Slate-200 */
+  
+  /* 文本颜色 */
+  --sidebar-text-primary: #1E293B; /* Slate-800 */
+  --sidebar-text-secondary: #64748B; /* Slate-500 */
+  --sidebar-text-active: #2563EB; /* Blue-600 */
+  --sidebar-text-hover: #1D4ED8; /* Blue-700 */
+  
+  /* 背景交互色 */
+  --sidebar-item-hover: #F8FAFC; /* Slate-50 */
+  --sidebar-item-active: #EFF6FF; /* Blue-50 */
+  
+  /* 装饰色 */
+  --sidebar-accent: #3B82F6; /* Blue-500 */
+  --sidebar-shadow: 4px 0 24px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme='dark'] {
+  /* 暗色主题 (Dark Theme) */
+  --sidebar-bg: #0F172A; /* Slate-900 */
+  --sidebar-bg-rgb: 15, 23, 42;
+  --sidebar-border: #1E293B; /* Slate-800 */
+  
+  /* 文本颜色 */
+  --sidebar-text-primary: #F1F5F9; /* Slate-100 */
+  --sidebar-text-secondary: #94A3B8; /* Slate-400 */
+  --sidebar-text-active: #60A5FA; /* Blue-400 */
+  --sidebar-text-hover: #93C5FD; /* Blue-300 */
+  
+  /* 背景交互色 */
+  --sidebar-item-hover: #1E293B; /* Slate-800 */
+  --sidebar-item-active: rgba(59, 130, 246, 0.15); /* Blue-500 with opacity */
+  
+  /* 装饰色 */
+  --sidebar-accent: #3B82F6;
+  --sidebar-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+}
+
+/* 高对比度模式 (High Contrast) - 辅助功能 */
+@media (prefers-contrast: more) {
+  :root {
+    --sidebar-border: #000000;
+    --sidebar-text-primary: #000000;
+    --sidebar-text-secondary: #1a1a1a;
+    --sidebar-text-active: #0000EE;
+  }
+  [data-theme='dark'] {
+    --sidebar-border: #FFFFFF;
+    --sidebar-text-primary: #FFFFFF;
+    --sidebar-text-secondary: #e6e6e6;
+    --sidebar-text-active: #00FFFF;
+  }
+}

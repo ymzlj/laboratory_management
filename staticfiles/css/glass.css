@@ -1,0 +1,73 @@
+/* Glassmorphism Core Styles - scoped to .glass-theme */
+.glass-theme .card {
+  position: relative;
+  border-radius: var(--glass-radius);
+  background: var(--glass-bg);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+.glass-theme .card .card-body { padding: 20px 24px; color: var(--text-primary); }
+.glass-theme .card .card-title { font-weight: 600; letter-spacing: .2px; }
+.glass-theme .card .card-text, .glass-theme .card .card-meta { color: var(--text-muted); }
+
+/* Progressive blur for supported browsers */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass-theme .card { -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+  .glass-theme .form-control { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+}
+/* Graceful degradation for non-supported browsers */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass-theme .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.12));
+    border-image: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.08)) 1;
+  }
+}
+/* Subtle noise texture */
+.glass-theme .card::before {
+  content:"";
+  position:absolute; inset:0; pointer-events:none;
+  /* Tiny SVG noise data URI (base64) */
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nNScgaGVpZ2h0PSc1JyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnPjxmaWx0ZXIgaWQ9J24nPjxmZVR1cmJ1bGVuY2UgdHlwZT0nZnJBYnMnIGJhc2VGcmVxPScwLjcnIHN0aXRjaFZhbHVlcz0nMCAwLjUgMC41Jy8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9JzUnIGhlaWdodD0nNScgZmlsdGVyPSJ1cmwoI24pIiBvcGFjaXR5PScwLjA4Jy8+PC9zdmc+");
+  opacity:0.08; mix-blend-mode:overlay;
+}
+
+/* Hover/Active micro-interactions */
+.glass-theme .card:hover { box-shadow: var(--shadow-strong); transform: translateY(-2px); transition: all .25s ease; }
+.glass-theme .card:active { transform: translateY(0); box-shadow: var(--shadow-soft); }
+
+/* Buttons */
+.glass-theme .btn {
+  border-radius: 12px;
+  color: var(--text-primary);
+  background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.18));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 12px rgba(15,23,42,0.12);
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.glass-theme .btn:hover { box-shadow: 0 8px 18px rgba(15,23,42,0.18); transform: translateY(-1px); }
+.glass-theme .btn:active { transform: translateY(0); box-shadow: 0 4px 12px rgba(15,23,42,0.12); }
+
+/* Inputs */
+.glass-theme .form-control {
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: rgba(255,255,255,0.35);
+  color: var(--text-primary);
+}
+.glass-theme .form-control::placeholder { color: var(--text-muted); }
+
+/* Background containers */
+.glass-theme .glass-bg {
+  background:
+    radial-gradient(1200px 600px at 10% 10%, var(--bg-grad-1) 0%, var(--bg-grad-2) 60%),
+    linear-gradient(180deg, var(--bg-grad-3) 0%, var(--bg-grad-4) 100%);
+}
+
+/* Accessibility: motion & high-contrast */
+@media (prefers-reduced-motion: reduce) { .glass-theme .card, .glass-theme .btn { transition: none; } }
+@media (forced-colors: active) {
+  .glass-theme .card { border: 1px solid CanvasText; background: Canvas; box-shadow: none; }
+  .glass-theme .btn { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; box-shadow: none; }
+}
+
