@@ -1,0 +1,1335 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ task.task_name }} - 任务详情{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<style>
+    .task-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    .info-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+    }
+    .status-badge {
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+    }
+    .priority-high { border-left: 5px solid #dc3545; }
+    .priority-medium { border-left: 5px solid #ffc107; }
+    .priority-low { border-left: 5px solid #28a745; }
+    .file-link {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        text-decoration: none;
+        color: #495057;
+        transition: all 0.3s;
+    }
+    .file-link:hover {
+        background: #e9ecef;
+        color: #495057;
+        text-decoration: none;
+    }
+    .timeline-item {
+        border-left: 3px solid #dee2e6;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+        position: relative;
+    }
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -6px;
+        top: 0.5rem;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #6c757d;
+    }
+    .timeline-item.active::before {
+        background: #007bff;
+    }
+    .timeline-item.completed::before {
+        background: #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 任务标题区域 -->
+    <div class="task-header 
+        {% if task.priority.code == 'high' %}priority-high
+        {% elif task.priority.code == 'medium' %}priority-medium
+        {% else %}priority-low{% endif %}">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2">{{ task.task_name }}</h1>
+                <p class="mb-2"><strong>任务编号：</strong>{{ task.task_number }}</p>
+                <p class="mb-0">{{ task.description }}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <span id="task-status-badge-header" class="badge status-badge
+                    {% if task.status.code == 'pending' %}bg-warning
+                    {% elif task.status.code == 'in_progress' %}bg-primary
+                    {% elif task.status.code == 'pending_review' %}bg-info
+                    {% elif task.status.code == 'reviewed' %}bg-success
+                    {% elif task.status.code == 'completed' %}bg-success
+                    {% elif task.status.code == 'cancelled' %}bg-secondary
+                    {% elif task.status.code == 'rejected' %}bg-danger
+                    {% elif task.status.code == 'archived' %}bg-secondary
+                    {% else %}bg-info{% endif %}">
+                    {{ task.status.name }}
+                </span>
+                <div class="mt-3">
+                    {% if user == task.requester or user.role == 'manager' or user.role == 'admin' %}
+                        {% if task.status.code == 'pending' %}
+                        <a href="{% url 'tasks:task_edit' task.id %}" class="btn btn-light me-2">
+                            <i class="fas fa-edit me-1"></i>编辑任务
+                        </a>
+                        {% else %}
+                        <button class="btn btn-light me-2" disabled title="任务已开始，不能编辑">
+                            <i class="fas fa-lock me-1"></i>编辑任务（已锁定）
+                        </button>
+                        {% endif %}
+                    {% endif %}
+                    {% if user.role == 'manager' or user.role == 'admin' %}
+                    <button class="btn btn-outline-light me-2" data-bs-toggle="modal" data-bs-target="#assignModal">
+                        <i class="fas fa-user-plus me-1"></i>分配任务
+                    </button>
+                    {% endif %}
+                    {% if user.role == 'manager' %}
+                    <a href="{% url 'tasks:task_decompose' task.id %}" class="btn btn-warning">
+                        <i class="fas fa-sitemap me-1"></i>任务分解
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：基本信息 -->
+        <div class="col-md-8">
+            <!-- 基本信息卡片 -->
+            <div class="card info-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>任务状态：</strong></td>
+                                    <td>
+                                        <span id="task-status-badge-info" class="badge 
+                                            {% if task.status.code == 'pending' %}bg-warning
+                                            {% elif task.status.code == 'in_progress' %}bg-primary
+                                            {% elif task.status.code == 'pending_review' %}bg-info
+                                            {% elif task.status.code == 'reviewed' %}bg-success
+                                            {% elif task.status.code == 'completed' %}bg-success
+                                            {% elif task.status.code == 'cancelled' %}bg-secondary
+                                            {% elif task.status.code == 'rejected' %}bg-danger
+                                            {% elif task.status.code == 'archived' %}bg-secondary
+                                            {% else %}bg-info{% endif %}">
+                                            {{ task.status.name }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>优先级：</strong></td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if task.priority.code == 'high' %}bg-danger
+                                            {% elif task.priority.code == 'medium' %}bg-warning
+                                            {% else %}bg-success{% endif %}">
+                                            {{ task.priority.name }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>申请人：</strong></td>
+                                    <td>{{ task.requester.username }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>申请人姓名：</strong></td>
+                                    <td>{{ task.requester_name|default:"未填写" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>申请人手机号：</strong></td>
+                                    <td>{{ task.requester_phone|default:"未填写" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>申请人部门：</strong></td>
+                                    <td>{{ task.requester_department|default:"未填写" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>负责人：</strong></td>
+                                    <td>
+                                        {% if task.assignee %}
+                                            {{ task.assignee.username }}
+                                        {% else %}
+                                            <span class="text-muted">未分配</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>计划开始：</strong></td>
+                                    <td>{{ task.start_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>计划结束：</strong></td>
+                                    <td>{{ task.end_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>实际开始：</strong></td>
+                                    <td>
+                                        {% if task.actual_start_date %}
+                                            {{ task.actual_start_date|date:"Y-m-d" }}
+                                        {% else %}
+                                            <span class="text-muted">未开始</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>实际结束：</strong></td>
+                                    <td>
+                                        {% if task.actual_end_date %}
+                                            {{ task.actual_end_date|date:"Y-m-d" }}
+                                        {% else %}
+                                            <span class="text-muted">未完成</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>产品名称：</strong></td>
+                                    <td>{{ task.product_name|default:"未填写" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>产品型号：</strong></td>
+                                    <td>{{ task.product_model|default:"未填写" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 进度条 -->
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>任务进度</strong>
+                            <span class="badge bg-info">{{ task.progress_percentage }}%</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar 
+                                {% if task.status.code == 'completed' %}bg-success
+                                {% elif task.status.code == 'in_progress' %}bg-primary
+                                {% else %}bg-secondary{% endif %}" 
+                                role="progressbar" 
+                                style="width: {{ task.progress_percentage }}%">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if task.is_overdue %}
+                    <div class="alert alert-danger mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>注意：</strong>此任务已逾期！
+                    </div>
+                    {% endif %}
+                    
+                    {% if task.rejection_reason and task.status.code == 'in_progress' %}
+                    <div class="alert alert-warning mt-3">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-circle me-2"></i>任务被退回
+                        </h6>
+                        <hr>
+                        <p class="mb-0"><strong>退回理由：</strong></p>
+                        <p class="mb-0">{{ task.rejection_reason }}</p>
+                    </div>
+                    {% elif task.status.code == 'rejected' and task.rejection_reason %}
+                    <div class="alert alert-danger mt-3">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-ban me-2"></i>任务被拒绝
+                        </h6>
+                        <hr>
+                        <p class="mb-0"><strong>拒绝理由：</strong></p>
+                        <p class="mb-0">{{ task.rejection_reason }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 试验过程描述 -->
+            <div class="card info-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-microscope me-2"></i>试验过程描述</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="showHistory()">
+                            <i class="fas fa-history me-1"></i>历史版本
+                        </button>
+                        <span id="save-status" class="text-muted small ms-2"></span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if user == task.assignee or user.role == 'manager' or user.role == 'admin' %}
+                        {% if task.status.code == 'archived' %}
+                            <div class="bg-light p-3 rounded" style="min-height: 100px;">
+                                {{ task.test_process_description|safe }}
+                            </div>
+                        {% else %}
+                            <div id="editor-container" style="height: 300px;"></div>
+                            <textarea id="process_description_hidden" style="display:none;">{{ task.test_process_description }}</textarea>
+                        {% endif %}
+                    {% else %}
+                        <div class="bg-light p-3 rounded" style="min-height: 100px;">
+                            {{ task.test_process_description|safe }}
+                        </div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between mt-2">
+                        <small class="text-muted" id="word-count">0 字</small>
+                        <small class="text-muted">建议不超过 2000 字</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 试验大纲 -->
+            <div class="card info-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>试验大纲</h5>
+                </div>
+                <div class="card-body">
+                    {% if task.test_outline %}
+                        <div class="mb-3">
+                            <pre class="bg-light p-3 rounded">{{ task.test_outline }}</pre>
+                        </div>
+                    {% endif %}
+                    
+                    {% if task.test_outline_file %}
+                        <div class="mb-3">
+                            <label class="form-label"><strong>大纲文件：</strong></label>
+                            <div>
+                                <a href="{{ task.test_outline_file.url }}" class="file-link" target="_blank">
+                                    <i class="fas fa-file-download me-2"></i>
+                                    下载试验大纲文件
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if not task.test_outline and not task.test_outline_file %}
+                        <p class="text-muted">暂无试验大纲</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 试验报告 -->
+            <div class="card info-card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-file-medical me-2"></i>试验报告</h5>
+                    {% if user == task.assignee or user.role == 'manager' or user.role == 'admin' %}
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadReportModal" onclick="if(typeof bootstrap === 'undefined') alert('系统组件未加载完成，请刷新页面或稍后再试。');">
+                        <i class="fas fa-upload me-1"></i>上传报告
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- 历史遗留字段显示 (如果有) -->
+                    {% if task.test_report %}
+                        <div class="mb-3">
+                            <h6>备注信息：</h6>
+                            <pre class="bg-light p-3 rounded">{{ task.test_report }}</pre>
+                        </div>
+                    {% endif %}
+                    
+                    {% if task.test_report_file %}
+                        <div class="mb-3">
+                            <h6>历史报告文件：</h6>
+                            <div>
+                                <a href="{{ task.test_report_file.url }}" class="file-link" target="_blank">
+                                    <i class="fas fa-file-download me-2"></i>
+                                    下载试验报告文件
+                                </a>
+                            </div>
+                        </div>
+                        <hr>
+                    {% endif %}
+
+                    <!-- 新的报告列表 -->
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="reportTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>文件名</th>
+                                    <th>大小</th>
+                                    <th>上传人</th>
+                                    <th>上传时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in reports %}
+                                <tr id="report-row-{{ report.id }}">
+                                    <td>
+                                        <a href="{{ report.file.url }}" target="_blank" class="text-decoration-none">
+                                            <i class="fas fa-file-alt me-2 text-primary"></i>{{ report.name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ report.size|filesizeformat }}</td>
+                                    <td>{{ report.uploader.username }}</td>
+                                    <td>{{ report.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <a href="{{ report.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="预览/下载">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                        {% if user == report.uploader or user.role == 'manager' or user.role == 'admin' %}
+                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteReport({{ report.id }})" title="删除">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr id="no-report-row">
+                                    <td colspan="5" class="text-center text-muted py-3">暂无上传的试验报告</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：操作和状态 -->
+        <div class="col-md-4">
+            <!-- 快速操作 -->
+            {% if user.role == 'manager' or user.role == 'admin' %}
+            <div class="card info-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>快速操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <!-- 待审核状态下的操作 -->
+                        {% if task.status.code == 'pending_review' %}
+                        <button class="btn btn-success" onclick="updateTaskStatus('completed')">
+                            <i class="fas fa-check-circle me-1"></i>审核通过
+                        </button>
+                        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#returnTaskModal">
+                            <i class="fas fa-undo me-1"></i>退回任务
+                        </button>
+                        {% endif %}
+
+                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#statusModal">
+                            <i class="fas fa-sync me-1"></i>更新状态
+                        </button>
+                        
+                        {% if task.status.code == 'pending' %}
+                        <button class="btn btn-info" onclick="updateTaskStatus('in_progress', this)">
+                            <i class="fas fa-play me-1"></i>开始任务
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% elif user.role == 'engineer' and user == task.assignee %}
+            <!-- 试验工程师操作 -->
+            <div class="card info-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>快速操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if task.status.code == 'in_progress' %}
+                        <button type="button" class="btn btn-primary" onclick="updateTaskStatus('pending_review', this)">
+                            <i class="fas fa-paper-plane me-1"></i>提交审核
+                        </button>
+                        {% else %}
+                        <div class="alert alert-light text-center mb-0">
+                            当前状态无法操作
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 任务时间线 -->
+            <div class="card info-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>任务时间线</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline-item completed">
+                        <strong>任务创建</strong>
+                        <div class="text-muted small">{{ task.created_at|date:"Y-m-d H:i" }}</div>
+                        <div class="small">由 {{ task.requester.username }} 创建</div>
+                    </div>
+                    
+                    {% if task.assignee %}
+                    <div class="timeline-item completed">
+                        <strong>任务分配</strong>
+                        <div class="small">分配给 {{ task.assignee.username }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if task.actual_start_date %}
+                    <div class="timeline-item completed">
+                        <strong>任务开始</strong>
+                        <div class="text-muted small">{{ task.actual_start_date|date:"Y-m-d" }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if task.status.code == 'pending_review' %}
+                    <div class="timeline-item completed">
+                        <strong>待审核</strong>
+                        <div class="text-muted small">{{ task.actual_end_date|date:"Y-m-d" }}</div>
+                        <div class="small">试验工程师已提交，等待审核</div>
+                    </div>
+                    {% elif task.status.code == 'reviewed' %}
+                    <div class="timeline-item completed">
+                        <strong>审核完成</strong>
+                        <div class="text-muted small">{{ task.actual_end_date|date:"Y-m-d" }}</div>
+                        <div class="small">任务已通过审核</div>
+                    </div>
+                    {% elif task.status.code == 'completed' and task.actual_end_date %}
+                    <div class="timeline-item completed">
+                        <strong>任务完成</strong>
+                        <div class="text-muted small">{{ task.actual_end_date|date:"Y-m-d" }}</div>
+                    </div>
+                    {% elif task.status.code == 'archived' %}
+                    <div class="timeline-item completed">
+                        <strong>任务已归档</strong>
+                        <div class="text-muted small">{{ task.updated_at|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="timeline-item">
+                        <strong>最后更新</strong>
+                        <div class="text-muted small">{{ task.updated_at|date:"Y-m-d H:i" }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 子任务列表 -->
+            {% if task.subtasks.exists %}
+            <div class="card info-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>子任务列表 ({{ task.subtasks.count }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="accordion accordion-flush" id="subtaskAccordion">
+                        {% for subtask in task.subtasks.all %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ subtask.id }}">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ subtask.id }}" aria-expanded="false" aria-controls="collapse{{ subtask.id }}">
+                                    <div class="d-flex w-100 justify-content-between align-items-center me-3">
+                                        <div>
+                                            <h6 class="mb-1">{{ subtask.subtask_number }}</h6>
+                                            <small class="text-muted">{{ subtask.test_type.name }}</small>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <small class="text-muted">
+                                                负责人：{% if subtask.assignee %}{{ subtask.assignee.username }}{% else %}未分配{% endif %}
+                                            </small>
+                                            <span class="badge 
+                                                {% if subtask.status.code == 'completed' %}bg-success
+                                                {% elif subtask.status.code == 'in_progress' %}bg-primary
+                                                {% elif subtask.status.code == 'pending' %}bg-warning
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ subtask.status.name }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="collapse{{ subtask.id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ subtask.id }}" data-bs-parent="#subtaskAccordion">
+                                <div class="accordion-body">
+                                    <!-- 子任务基本信息 -->
+                                    <div class="mb-3">
+                                        <h6 class="text-primary"><i class="fas fa-info-circle me-1"></i>基本信息</h6>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <small><strong>子任务编号：</strong>{{ subtask.subtask_number }}</small><br>
+                                                <small><strong>试验类型：</strong>{{ subtask.test_type.name }}</small><br>
+                                                <small><strong>负责人：</strong>{% if subtask.assignee %}{{ subtask.assignee.username }}{% else %}未分配{% endif %}</small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <small><strong>开始日期：</strong>{{ subtask.start_date|date:"Y-m-d" }}</small><br>
+                                                <small><strong>结束日期：</strong>{{ subtask.end_date|date:"Y-m-d" }}</small><br>
+                                                <small><strong>状态：</strong>
+                                                    <span class="badge 
+                                                        {% if subtask.status.code == 'completed' %}bg-success
+                                                        {% elif subtask.status.code == 'in_progress' %}bg-primary
+                                                        {% elif subtask.status.code == 'pending' %}bg-warning
+                                                        {% else %}bg-secondary{% endif %}">
+                                                        {{ subtask.status.name }}
+                                                    </span>
+                                                </small>
+                                            </div>
+                                        </div>
+                                        {% if subtask.description %}
+                                        <div class="mt-2">
+                                            <small><strong>描述：</strong>{{ subtask.description }}</small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <hr>
+                                    
+                                    <!-- 试验数据 (已隐藏) -->
+                                    <!-- 
+                                    <div class="mb-3">
+                                        <h6 class="text-primary"><i class="fas fa-flask me-1"></i>试验数据</h6>
+                                        ...
+                                    </div>
+                                    -->
+                                    
+                                    <!-- 操作按钮 -->
+                                    <div class="text-end">
+                                        <a href="{% url 'tasks:subtask_detail' subtask.id %}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye me-1"></i>查看详情
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 相关链接 -->
+            <div class="card info-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-link me-2"></i>相关链接</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'tasks:task_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-list me-1"></i>返回任务列表
+                        </a>
+                        <a href="{% url 'tasks:my_tasks' %}" class="btn btn-outline-info">
+                            <i class="fas fa-user me-1"></i>我的任务
+                        </a>
+                        <a href="{% url 'tasks:dashboard' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-chart-bar me-1"></i>任务仪表板
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 分配任务模态框 -->
+{% if user.role == 'manager' or user.role == 'admin' %}
+<div class="modal fade" id="assignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">分配任务</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'tasks:task_assign' task.id %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="assignee_id" class="form-label">选择负责人</label>
+                        <select name="assignee" id="assignee_id" class="form-select">
+                            <option value="">取消分配</option>
+                            {% for user_option in users %}
+                            <option value="{{ user_option.id }}" 
+                                {% if user_option == task.assignee %}selected{% endif %}>
+                                {{ user_option.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">确认分配</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 退回任务模态框 -->
+{% if user.role == 'manager' or user.role == 'admin' %}
+<div class="modal fade" id="returnTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="fas fa-undo me-2"></i>退回任务</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="return_reason" class="form-label">
+                        退回理由 <span class="text-danger">*</span>
+                    </label>
+                    <textarea id="return_reason" class="form-control" rows="4" 
+                        placeholder="请详细说明退回原因，以便试验工程师修改..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-warning" onclick="submitReturnTask()">确认退回</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 状态更新模态框 -->
+{% if user.role == 'manager' or user.role == 'admin' %}
+<div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">更新任务状态</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="new_status" class="form-label">选择新状态</label>
+                    <select id="new_status" class="form-select" onchange="toggleRejectionReason()">
+                        {% for status in statuses %}
+                        <option value="{{ status.id }}" data-code="{{ status.code }}"
+                            {% if status == task.status %}selected{% endif %}>
+                            {{ status.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- 拒绝理由输入框（默认隐藏） -->
+                <div class="mb-3" id="rejection_reason_group" style="display: none;">
+                    <label for="rejection_reason" class="form-label">
+                        拒绝理由 <span class="text-danger">*</span>
+                    </label>
+                    <textarea id="rejection_reason" class="form-control" rows="4" 
+                        placeholder="请详细说明拒绝此任务的原因..."></textarea>
+                    <div class="form-text">拒绝理由将通知任务申请人</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="status_remarks" class="form-label">备注（可选）</label>
+                    <textarea id="status_remarks" class="form-control" rows="3" 
+                        placeholder="请输入状态更新说明"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitStatusUpdate()">确认更新</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+<!-- 上传报告模态框 -->
+<div class="modal fade" id="uploadReportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传试验报告</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">选择文件</label>
+                    <input type="file" class="form-control" id="reportFile" multiple>
+                    <div class="form-text">支持格式：PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, 图片等。单个文件最大50MB。</div>
+                </div>
+                <div class="progress mb-3" style="display: none;" id="uploadProgress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div id="uploadStatus" class="alert" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="uploadReports()">开始上传</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 历史版本模态框 -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">试验过程描述 - 历史版本</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="history-loading" class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div id="history-list" class="list-group list-group-flush">
+                    <!-- History items will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+// Quill Init
+let quill;
+document.addEventListener('DOMContentLoaded', function() {
+    const editorContainer = document.getElementById('editor-container');
+    if (editorContainer) {
+        quill = new Quill('#editor-container', {
+            theme: 'snow',
+            placeholder: '在此记录试验过程详细步骤、观察结果...',
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'header': [1, 2, 3, false] }],
+                    [{ 'color': [] }, { 'background': [] }],
+                    ['clean']
+                ]
+            }
+        });
+        
+        // Load content
+        const hiddenContent = document.getElementById('process_description_hidden');
+        if (hiddenContent) {
+            quill.root.innerHTML = hiddenContent.value;
+        }
+        
+        // Word count
+        quill.on('text-change', function() {
+            const text = quill.getText();
+            // quill returns a newline at the end, so subtract 1 if not empty
+            let wordCount = text.length > 1 ? text.length - 1 : 0;
+            document.getElementById('word-count').innerText = wordCount + ' 字';
+            
+            if (wordCount > 2000) {
+                document.getElementById('word-count').classList.add('text-danger');
+            } else {
+                document.getElementById('word-count').classList.remove('text-danger');
+            }
+            
+            // Auto save
+            debouncedSave();
+        });
+    }
+});
+
+// Auto Save (Debounce)
+let saveTimeout;
+function debouncedSave() {
+    const statusSpan = document.getElementById('save-status');
+    statusSpan.innerText = '正在输入...';
+    
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        saveProcessDescription();
+    }, 2000); // Save after 2 seconds of inactivity
+}
+
+function saveProcessDescription() {
+    if (!quill) return;
+    const content = quill.root.innerHTML;
+    const statusSpan = document.getElementById('save-status');
+    statusSpan.innerText = '正在保存...';
+    
+    fetch('{% url "tasks:task_process_update" task.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            content: content
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusSpan.innerText = '已自动保存 ' + new Date().toLocaleTimeString();
+            setTimeout(() => { 
+                if (statusSpan.innerText.includes('已自动保存')) statusSpan.innerText = ''; 
+            }, 3000);
+        } else {
+            statusSpan.innerText = '保存失败: ' + data.message;
+            statusSpan.classList.add('text-danger');
+            if (typeof showAlert === 'function') showAlert('保存失败: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        statusSpan.innerText = '保存出错';
+        statusSpan.classList.add('text-danger');
+        if (typeof showAlert === 'function') showAlert('保存出错，请检查网络连接', 'error');
+    });
+}
+
+function showHistory() {
+    const modal = new bootstrap.Modal(document.getElementById('historyModal'));
+    modal.show();
+    
+    const listDiv = document.getElementById('history-list');
+    const loadingDiv = document.getElementById('history-loading');
+    
+    loadingDiv.style.display = 'block';
+    listDiv.innerHTML = '';
+    
+    fetch('{% url "tasks:task_process_history" task.id %}')
+    .then(response => response.json())
+    .then(data => {
+        loadingDiv.style.display = 'none';
+        if (data.success && data.history.length > 0) {
+            data.history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'list-group-item list-group-item-action';
+                div.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${item.updated_by}</h6>
+                        <small>${item.created_at}</small>
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-primary" onclick="restoreVersion(this)">恢复此版本</button>
+                        <div class="d-none full-content">${item.content}</div>
+                    </div>
+                `;
+                listDiv.appendChild(div);
+            });
+        } else {
+            listDiv.innerHTML = '<div class="text-center text-muted p-3">暂无历史记录</div>';
+        }
+    })
+    .catch(error => {
+        loadingDiv.style.display = 'none';
+        listDiv.innerHTML = '<div class="text-center text-danger p-3">加载失败</div>';
+        if (typeof showAlert === 'function') showAlert('加载历史记录失败', 'error');
+    });
+}
+
+function restoreVersion(btn) {
+    if (!quill) return;
+    if (!confirm('确认要恢复到此版本吗？当前未保存的内容将丢失。')) return;
+    
+    const content = btn.nextElementSibling.innerHTML;
+    quill.root.innerHTML = content;
+    // bootstrap.Modal.getInstance(document.getElementById('historyModal')).hide(); // Might fail if jquery bootstrap conflict
+    const modalEl = document.getElementById('historyModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
+    
+    saveProcessDescription(); // Immediately save restored version
+    if (typeof showAlert === 'function') showAlert('已恢复到历史版本', 'success');
+}
+
+// Status Code to ID mapping
+const STATUS_MAP = {
+    {% for status in statuses %}
+    "{{ status.code }}": "{{ status.id }}",
+    {% endfor %}
+};
+
+function submitReturnTask() {
+    const returnReason = document.getElementById('return_reason').value;
+    
+    if (!returnReason || returnReason.trim() === '') {
+        showAlert('请填写退回理由！', 'warning');
+        document.getElementById('return_reason').focus();
+        return;
+    }
+    
+    const statusId = STATUS_MAP['in_progress'];
+    
+    if (!statusId) {
+        showAlert('无法找到"进行中"状态配置，请联系管理员', 'error');
+        return;
+    }
+    
+    if (!confirm('确认要退回此任务吗？')) {
+        return;
+    }
+    
+    fetch('{% url "tasks:task_status_update" task.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            status_id: statusId,
+            rejection_reason: returnReason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert('操作失败：' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('网络错误，请重试', 'error');
+    });
+}
+
+function uploadReports() {
+    const fileInput = document.getElementById('reportFile');
+    const files = fileInput.files;
+    
+    if (files.length === 0) {
+        showAlert('请选择要上传的文件！', 'warning');
+        return;
+    }
+    
+    const progressBar = document.querySelector('#uploadProgress .progress-bar');
+    const progressDiv = document.getElementById('uploadProgress');
+    const statusDiv = document.getElementById('uploadStatus');
+    const uploadBtn = document.querySelector('#uploadReportModal .btn-primary');
+    
+    progressDiv.style.display = 'flex';
+    statusDiv.style.display = 'none';
+    uploadBtn.disabled = true;
+    
+    let completed = 0;
+    let success = 0;
+    let failed = 0;
+    
+    // Upload files one by one
+    Array.from(files).forEach(file => {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '{% url "tasks:task_report_upload" task.id %}', true);
+        xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+        
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                // Simple progress for now
+                progressBar.style.width = '100%'; 
+            }
+        };
+        
+        xhr.onload = function() {
+            completed++;
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                if (response.success) {
+                    success++;
+                    addReportToTable(response.report);
+                } else {
+                    failed++;
+                    console.error(response.message);
+                }
+            } else {
+                failed++;
+            }
+            
+            if (completed === files.length) {
+                uploadBtn.disabled = false;
+                progressDiv.style.display = 'none';
+                statusDiv.className = failed > 0 ? 'alert alert-warning' : 'alert alert-success';
+                statusDiv.innerHTML = `上传完成：成功 ${success} 个，失败 ${failed} 个`;
+                statusDiv.style.display = 'block';
+                
+                if (success > 0) {
+                    fileInput.value = ''; // Clear input
+                    // Remove "no reports" row if exists
+                    const noRow = document.getElementById('no-report-row');
+                    if (noRow) noRow.remove();
+                }
+                
+                // Close modal after 1.5s if all success
+                if (failed === 0) {
+                    setTimeout(() => {
+                        const modalEl = document.getElementById('uploadReportModal');
+                        if (typeof bootstrap !== 'undefined') {
+                            const modal = bootstrap.Modal.getInstance(modalEl);
+                            if (modal) {
+                                modal.hide();
+                            } else {
+                                manualCloseModal(modalEl);
+                            }
+                        } else {
+                            manualCloseModal(modalEl);
+                        }
+                        statusDiv.style.display = 'none';
+                    }, 1500);
+                }
+            }
+        };
+        
+        xhr.onerror = function() {
+            completed++;
+            failed++;
+            if (completed === files.length) {
+                uploadBtn.disabled = false;
+                progressDiv.style.display = 'none';
+                statusDiv.className = 'alert alert-danger';
+                statusDiv.innerHTML = '网络错误，上传失败';
+                statusDiv.style.display = 'block';
+            }
+        };
+        
+        xhr.send(formData);
+    });
+}
+
+function manualCloseModal(modalEl) {
+    modalEl.classList.remove('show');
+    modalEl.style.display = 'none';
+    modalEl.setAttribute('aria-modal', 'false');
+    modalEl.removeAttribute('role');
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) backdrop.remove();
+}
+
+function addReportToTable(report) {
+    const tbody = document.querySelector('#reportTable tbody');
+    const tr = document.createElement('tr');
+    tr.id = `report-row-${report.id}`;
+    
+    // Format file size
+    let sizeStr = '';
+    if (report.size < 1024) sizeStr = report.size + ' B';
+    else if (report.size < 1024 * 1024) sizeStr = (report.size / 1024).toFixed(1) + ' KB';
+    else sizeStr = (report.size / (1024 * 1024)).toFixed(1) + ' MB';
+    
+    tr.innerHTML = `
+        <td>
+            <a href="${report.url}" target="_blank" class="text-decoration-none">
+                <i class="fas fa-file-alt me-2 text-primary"></i>${report.name}
+            </a>
+        </td>
+        <td>${sizeStr}</td>
+        <td>${report.uploader}</td>
+        <td>${report.created_at}</td>
+        <td>
+            <a href="${report.url}" target="_blank" class="btn btn-sm btn-outline-primary" title="预览/下载">
+                <i class="fas fa-download"></i>
+            </a>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteReport(${report.id})" title="删除">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
+    
+    // Insert at top
+    tbody.insertBefore(tr, tbody.firstChild);
+}
+
+function deleteReport(reportId) {
+    if (!confirm('确认要删除此报告文件吗？此操作不可恢复。')) {
+        return;
+    }
+    
+    fetch(`/tasks/report/${reportId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById(`report-row-${reportId}`);
+            if (row) row.remove();
+            
+            // Check if table is empty
+            const tbody = document.querySelector('#reportTable tbody');
+            if (tbody.children.length === 0) {
+                tbody.innerHTML = `
+                    <tr id="no-report-row">
+                        <td colspan="5" class="text-center text-muted py-3">暂无上传的试验报告</td>
+                    </tr>
+                `;
+            }
+            showAlert(data.message, 'success');
+        } else {
+            showAlert('删除失败：' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('网络错误，请重试', 'error');
+    });
+}
+
+// 切换拒绝理由输入框的显示/隐藏
+function toggleRejectionReason() {
+    const statusSelect = document.getElementById('new_status');
+    const selectedOption = statusSelect.options[statusSelect.selectedIndex];
+    const statusCode = selectedOption.getAttribute('data-code');
+    const rejectionGroup = document.getElementById('rejection_reason_group');
+    
+    if (statusCode === 'rejected') {
+        rejectionGroup.style.display = 'block';
+    } else {
+        rejectionGroup.style.display = 'none';
+        document.getElementById('rejection_reason').value = '';
+    }
+}
+
+function updateTaskStatus(statusCode, btnElement) {
+    if (!confirm('确认要更新任务状态吗？')) {
+        return;
+    }
+    
+    const statusId = STATUS_MAP[statusCode];
+    
+    if (!statusId) {
+        showAlert('状态配置错误：找不到状态 ' + statusCode, 'error');
+        return;
+    }
+
+    // UI Feedback: Loading state
+    let originalBtnContent = '';
+    if (btnElement) {
+        originalBtnContent = btnElement.innerHTML;
+        btnElement.disabled = true;
+        btnElement.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>处理中...';
+    }
+    
+    // 发送AJAX请求更新状态
+    fetch('{% url "tasks:task_status_update" task.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            status_id: statusId,
+            remarks: ''
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Optimistic UI Update / Immediate Feedback
+            const statusClassMap = {
+                'pending': 'bg-warning',
+                'in_progress': 'bg-primary',
+                'pending_review': 'bg-info',
+                'reviewed': 'bg-success',
+                'completed': 'bg-success',
+                'cancelled': 'bg-secondary',
+                'rejected': 'bg-danger',
+                'archived': 'bg-secondary'
+            };
+
+            const newClass = statusClassMap[data.new_status_code] || 'bg-info';
+            
+            // Update Header Badge
+            const headerBadge = document.getElementById('task-status-badge-header');
+            if (headerBadge) {
+                headerBadge.className = 'badge status-badge ' + newClass;
+                headerBadge.innerText = data.new_status;
+            }
+
+            // Update Info Badge
+            const infoBadge = document.getElementById('task-status-badge-info');
+            if (infoBadge) {
+                infoBadge.className = 'badge ' + newClass;
+                infoBadge.innerText = data.new_status;
+            }
+
+            // Small delay before reload to let user see the change
+            showAlert(data.message, 'success');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showAlert('更新失败：' + data.message, 'error');
+            // Rollback UI
+            if (btnElement) {
+                btnElement.disabled = false;
+                btnElement.innerHTML = originalBtnContent;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('网络错误，请重试', 'error');
+        // Rollback UI
+        if (btnElement) {
+            btnElement.disabled = false;
+            btnElement.innerHTML = originalBtnContent;
+        }
+    });
+}
+
+function submitStatusUpdate() {
+    const statusId = document.getElementById('new_status').value;
+    const statusSelect = document.getElementById('new_status');
+    const selectedOption = statusSelect.options[statusSelect.selectedIndex];
+    const statusCode = selectedOption.getAttribute('data-code');
+    const remarks = document.getElementById('status_remarks').value;
+    const rejectionReason = document.getElementById('rejection_reason').value;
+    
+    // 如果选择的是拒绝状态，检查是否填写了拒绝理由
+    if (statusCode === 'rejected') {
+        if (!rejectionReason || rejectionReason.trim() === '') {
+            showAlert('请填写拒绝理由！', 'warning');
+            document.getElementById('rejection_reason').focus();
+            return;
+        }
+    }
+    
+    fetch('{% url "tasks:task_status_update" task.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            status_id: statusId,
+            remarks: remarks,
+            rejection_reason: rejectionReason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert('更新失败：' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showAlert('网络错误，请重试', 'error');
+    });
+}
+</script>
+{% endblock %}

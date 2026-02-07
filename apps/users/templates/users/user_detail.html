@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block title %}用户详情 - 实验室管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fas fa-user-circle me-2"></i>用户详情
+        </h2>
+        <div class="btn-group">
+            <a href="{% url 'users:user_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>返回列表
+            </a>
+            {% if request.user.role == 'manager' or request.user.role == 'admin' %}
+            {% if not user_detail.is_superuser %}
+            <a href="{% url 'users:user_edit' user_detail.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit me-1"></i>编辑用户
+            </a>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-1"></i>基本信息
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">用户名</label>
+                            <p class="mb-0">{{ user_detail.username }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">邮箱</label>
+                            <p class="mb-0">{{ user_detail.email|default:"-" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">工号</label>
+                            <p class="mb-0">{{ user_detail.employee_id }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">部门</label>
+                            <p class="mb-0">
+                                {% if user_detail.department %}
+                                    <span class="badge bg-secondary">{{ user_detail.department.name }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">角色</label>
+                            <p class="mb-0">
+                                {% for role_value, role_name in user_detail.USER_ROLE_CHOICES %}
+                                    {% if role_value == user_detail.role %}
+                                        <span class="badge bg-primary">{{ role_name }}</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">状态</label>
+                            <p class="mb-0">
+                                {% if user_detail.account_status %}
+                                    <span class="badge bg-success">正常</span>
+                                {% else %}
+                                    <span class="badge bg-danger">冻结</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">最后登录</label>
+                            <p class="mb-0">
+                                {% if user_detail.last_login %}
+                                    {{ user_detail.last_login|date:"Y-m-d H:i:s" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">创建时间</label>
+                            <p class="mb-0">{{ user_detail.date_joined|date:"Y-m-d H:i:s" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cogs me-1"></i>操作面板
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if request.user.role == 'manager' or request.user.role == 'admin' %}
+                    <div class="d-grid gap-2">
+                        {% if not user_detail.is_superuser %}
+                            {% if user_detail.account_status %}
+                                <button type="button" class="btn btn-warning" onclick="toggleUserStatus({{ user_detail.pk }}, false)">
+                                    <i class="fas fa-toggle-off me-1"></i>禁用用户
+                                </button>
+                            {% else %}
+                                <button type="button" class="btn btn-success" onclick="toggleUserStatus({{ user_detail.pk }}, true)">
+                                    <i class="fas fa-toggle-on me-1"></i>启用用户
+                                </button>
+                            {% endif %}
+                            <button type="button" class="btn btn-danger" onclick="deleteUser({{ user_detail.pk }}, '{{ user_detail.username|escapejs }}')">
+                                <i class="fas fa-trash me-1"></i>删除用户
+                            </button>
+                        {% else %}
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle me-1"></i>超级管理员用户无法被禁用或删除
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-lock me-1"></i>只有试验室主管和系统管理员才能修改用户信息
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 切换用户状态
+function toggleUserStatus(userId, newStatus) {
+    const action = newStatus ? '启用' : '禁用';
+    if (confirm(`确定要${action}这个用户吗？`)) {
+        fetch(`{% url 'users:toggle_user_status' 0 %}`.replace('0', userId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ is_active: newStatus })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('操作失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('操作失败，请重试');
+        });
+    }
+}
+
+// 删除用户
+function deleteUser(userId, username) {
+    if (confirm(`确定要删除用户 "${username}" 吗？此操作不可撤销！`)) {
+        fetch(`{% url 'users:user_delete' 0 %}`.replace('0', userId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = "{% url 'users:user_list' %}";
+            } else {
+                alert('删除失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除失败，请重试');
+        });
+    }
+}
+</script>
+{% endblock %}

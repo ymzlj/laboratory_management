@@ -1,0 +1,775 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load task_extras %}
+
+{% block title %}{{ test_type.name }} - 批量数据录入{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table-wrapper {
+        overflow-x: auto;
+        margin-top: 20px;
+    }
+    
+    .data-entry-table {
+        min-width: 1000px;
+        border-collapse: collapse;
+    }
+    
+    .data-entry-table th {
+        background-color: #4a90e2;
+        color: white;
+        font-weight: 600;
+        padding: 12px 8px;
+        text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        white-space: nowrap;
+        font-size: 0.9rem;
+    }
+    
+    .data-entry-table td {
+        padding: 4px;
+        vertical-align: middle;
+        border: 1px solid #dee2e6;
+    }
+    
+    .data-entry-table tbody tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+    
+    .data-entry-table tbody tr:hover {
+        background-color: #e9ecef;
+    }
+    
+    .data-entry-table input,
+    .data-entry-table select,
+    .data-entry-table textarea {
+        width: 100%;
+        border: 1px solid #ced4da;
+        font-size: 0.85rem;
+    }
+    
+    .data-entry-table textarea {
+        min-height: 50px;
+        resize: vertical;
+    }
+    
+    .row-number {
+        text-align: center;
+        font-weight: 600;
+        color: #6c757d;
+        width: 40px;
+    }
+    
+    .delete-checkbox {
+        text-align: center;
+        width: 50px;
+    }
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.7);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+    .error-cell {
+        border-color: #dc3545 !important;
+        box-shadow: 0 0 0 0.1rem rgba(220,53,69,.25);
+    }
+    /* Flatpickr Customization */
+    .flatpickr-calendar {
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: 1px solid #e9ecef;
+    }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-table me-2"></i>{{ test_type.name }} - 批量数据录入</h2>
+            <p class="text-muted mb-0">子任务：{{ subtask.subtask_number }} - {{ subtask.subtask_name }}</p>
+        </div>
+        <div>
+            <a href="{% url 'tasks:generic_test_data_list' subtask.id %}" class="btn btn-info">
+                <i class="fas fa-list me-1"></i>查看已录入数据
+            </a>
+            <a href="{% url 'tasks:subtask_detail' subtask.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>返回子任务
+            </a>
+        </div>
+    </div>
+
+    <!-- 已录入数据概览 -->
+    {% if existing_data %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-database me-2"></i>已录入数据概览（共 {{ existing_data.count }} 条）</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                已有 <strong>{{ existing_data.count }}</strong> 条数据，最新录入时间：{{ existing_data.first.created_at|date:"Y-m-d H:i" }}
+                <a href="{% url 'tasks:generic_test_data_list' subtask.id %}" class="alert-link ms-2">查看详情 →</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 数据录入表单 -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-edit me-2"></i>批量数据录入（Excel表格模式）</h5>
+        </div>
+        <div class="card-body">
+            <!-- Excel导入区域 -->
+            <div class="mb-4">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0"><i class="fas fa-file-excel me-2"></i>Excel批量导入</h6>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" enctype="multipart/form-data" id="excelUploadForm">
+                            {% csrf_token %}
+                            <div class="row align-items-end">
+                                <div class="col-md-8">
+                                    <label for="excel_file" class="form-label">
+                                        <i class="fas fa-upload me-1"></i>选择Excel文件
+                                    </label>
+                                    <input type="file" 
+                                           class="form-control" 
+                                           id="excel_file" 
+                                           name="excel_file" 
+                                           accept=".xlsx,.xls"
+                                           required>
+                                    <small class="form-text text-muted">
+                                        支持 .xlsx 和 .xls 格式，请按照模板格式填写数据
+                                    </small>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="fas fa-file-import me-1"></i>导入数据
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <a href="{% url 'tasks:download_generic_test_template' subtask.id %}" class="btn btn-sm btn-outline-info">
+                                    <i class="fas fa-download me-1"></i>下载 Excel 模板
+                                </a>
+                                <small class="text-muted ms-2">
+                                    请先下载模板，按照模板格式填写数据后再导入
+                                </small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% if import_stats %}
+            <div class="alert alert-info">
+                <i class="fas fa-chart-bar me-2"></i>共 {{ import_stats.total_rows }} 行，成功解析 {{ import_stats.parsed_rows }} 行，跳过 {{ import_stats.error_rows }} 行。
+            </div>
+            {% endif %}
+            
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>填写说明：</strong>
+                <ul class="mb-0 mt-2">
+                    <li><strong>试验编号：</strong>系统自动生成（不可修改）</li>
+                    <li>带 <span class="text-danger">*</span> 的字段为必填项</li>
+                    <li>默认显示1行空白表单，点击"添加一行"按钮可逐行添加，点击"批量添加"一次添加5行</li>
+                    <li>勾选"删除"列可以移除该行数据</li>
+                </ul>
+            </div>
+
+            <form method="post" id="dataEntryForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                {{ formset.management_form }}
+                
+                <!-- 显示表单错误 -->
+                {% if formset.non_form_errors %}
+                <div class="alert alert-danger">
+                    {{ formset.non_form_errors }}
+                </div>
+                {% endif %}
+                
+                <div class="table-wrapper">
+                    <table class="table table-bordered data-entry-table">
+                        <thead>
+                            <tr>
+                                <th class="row-number">序号</th>
+                                <th style="width: 150px;">试验编号</th>
+                                
+                                {% for field in fields %}
+                                <th>
+                                    {{ field.field_name }}
+                                    {% if field.is_required %}<span class="text-danger">*</span>{% endif %}
+                                </th>
+                                {% endfor %}
+                                <th class="delete-column">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="formset-body">
+                            {% for form in formset %}
+                            <tr class="formset-row">
+                                <td class="row-number">{{ forloop.counter }}</td>
+                                <td>
+                                    {{ form.test_number }}
+                                </td>
+                                
+                                {% for field in fields %}
+                                    <td>
+                                        {% if field.field_type == 'file' %}
+                                            {% with cid=form.prefix|add:'-'|add:field.field_code %}
+                                            <input type="file" name="{{ form.prefix }}-{{ field.field_code }}" class="form-control form-control-sm file-multi-input" accept="{{ field.field_options.accept|default:'image/*' }}" multiple data-count-id="count-{{ cid }}">
+                                            <small id="count-{{ cid }}" class="text-muted">已选 0 张</small>
+                                            {% if field.help_text %}
+                                                <small class="text-info d-block">{{ field.help_text }}</small>
+                                            {% endif %}
+                                            {% if form.errors|get_item:field.field_code %}
+                                                <small class="text-danger">{{ form.errors|get_item:field.field_code }}</small>
+                                            {% endif %}
+                                            {% endwith %}
+                                        {% else %}
+                                            {% with field_widget=form|attr:field.field_code %}
+                                            {% if field_widget %}
+                                                {{ field_widget }}
+                                                {% if field_widget.errors %}
+                                                    <small class="text-danger">{{ field_widget.errors.0 }}</small>
+                                                {% endif %}
+                                            {% else %}
+                                                {% if field.field_type == 'date' %}
+                                                    <input type="text" name="{{ form.prefix }}-{{ field.field_code }}" class="form-control form-control-sm flatpickr-date" placeholder="YYYY-MM-DD" value="{{ form.data|get_item:field.field_code|default:'' }}">
+                                                {% elif field.field_type == 'datetime' %}
+                                                    <input type="text" name="{{ form.prefix }}-{{ field.field_code }}" class="form-control form-control-sm flatpickr-datetime" placeholder="YYYY-MM-DD HH:mm" value="{{ form.data|get_item:field.field_code|default:'' }}">
+                                                {% else %}
+                                                    <input type="text" name="{{ form.prefix }}-{{ field.field_code }}" class="form-control form-control-sm" placeholder="{{ field.placeholder|default:'请输入' }}{{ field.field_name }}" value="{{ form.data|get_item:field.field_code|default:'' }}">
+                                                {% endif %}
+                                            {% endif %}
+                                            {% endwith %}
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                                <td class="delete-column">
+                                    <button type="button" class="btn btn-danger btn-sm delete-row-btn" data-row-index="{{ forloop.counter0 }}">
+                                        <i class="fas fa-trash"></i> 删除
+                                    </button>
+                                    {{ form.DELETE }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="d-flex justify-content-between mt-3">
+                    <div>
+                        <button type="button" class="btn btn-success" id="add-row-btn">
+                            <i class="fas fa-plus me-1"></i>添加一行
+                        </button>
+                        <button type="button" class="btn btn-info" id="add-multiple-rows-btn">
+                            <i class="fas fa-plus-square me-1"></i>批量添加（+5行）
+                        </button>
+                        
+                    </div>
+                    <div>
+                        <a href="{% url 'tasks:subtask_detail' subtask.id %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-1"></i>取消
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="saveButton">
+                            <i class="fas fa-save me-1"></i>保存数据
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <div class="text-primary ms-2 fw-bold" id="loadingText">处理中...</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
+
+<script>
+// 初始化Flatpickr
+function initFlatpickr(context) {
+    context = context || document;
+    
+    // 日期选择器
+    const dateInputs = context.querySelectorAll(".flatpickr-date:not(.flatpickr-input)");
+    if (dateInputs.length > 0) {
+        flatpickr(dateInputs, {
+            locale: "zh",
+            dateFormat: "Y-m-d",
+            allowInput: true,
+            monthSelectorType: "static",
+            time_24hr: true,
+            onReady: function(selectedDates, dateStr, instance) {
+                const btnContainer = document.createElement("div");
+                btnContainer.className = "d-flex justify-content-between border-top p-1";
+                
+                const todayBtn = document.createElement("button");
+                todayBtn.type = "button";
+                todayBtn.className = "btn btn-sm btn-link text-primary text-decoration-none";
+                todayBtn.textContent = "今天";
+                todayBtn.addEventListener("click", () => {
+                    instance.setDate(new Date());
+                    instance.close();
+                });
+                
+                const clearBtn = document.createElement("button");
+                clearBtn.type = "button";
+                clearBtn.className = "btn btn-sm btn-link text-danger text-decoration-none";
+                clearBtn.textContent = "清空";
+                clearBtn.addEventListener("click", () => {
+                    instance.clear();
+                    instance.close();
+                });
+
+                btnContainer.appendChild(todayBtn);
+                btnContainer.appendChild(clearBtn);
+                instance.calendarContainer.appendChild(btnContainer);
+            }
+        });
+    }
+    
+    // 日期时间选择器
+    const datetimeInputs = context.querySelectorAll(".flatpickr-datetime:not(.flatpickr-input)");
+    if (datetimeInputs.length > 0) {
+        flatpickr(datetimeInputs, {
+            locale: "zh",
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            time_24hr: true,
+            allowInput: true,
+            monthSelectorType: "static",
+            onReady: function(selectedDates, dateStr, instance) {
+                const btnContainer = document.createElement("div");
+                btnContainer.className = "d-flex justify-content-between border-top p-1";
+                
+                const todayBtn = document.createElement("button");
+                todayBtn.type = "button";
+                todayBtn.className = "btn btn-sm btn-link text-primary text-decoration-none";
+                todayBtn.textContent = "现在";
+                todayBtn.addEventListener("click", () => {
+                    instance.setDate(new Date());
+                    // DateTime picker usually stays open for time selection, but "Now" implies done.
+                    // Let's keep it open or close it? User asked for "Confirm" button.
+                    // Flatpickr auto-confirms usually. "Now" sets it.
+                });
+                
+                const clearBtn = document.createElement("button");
+                clearBtn.type = "button";
+                clearBtn.className = "btn btn-sm btn-link text-danger text-decoration-none";
+                clearBtn.textContent = "清空";
+                clearBtn.addEventListener("click", () => {
+                    instance.clear();
+                    instance.close();
+                });
+                
+                const confirmBtn = document.createElement("button");
+                confirmBtn.type = "button";
+                confirmBtn.className = "btn btn-sm btn-link text-success text-decoration-none";
+                confirmBtn.textContent = "确定";
+                confirmBtn.addEventListener("click", () => {
+                    instance.close();
+                });
+
+                btnContainer.appendChild(todayBtn);
+                btnContainer.appendChild(clearBtn);
+                btnContainer.appendChild(confirmBtn);
+                instance.calendarContainer.appendChild(btnContainer);
+            }
+        });
+    }
+}
+
+// HTML转义函数
+function escapeHtml(text) {
+    if (typeof text !== 'string') {
+        return text;
+    }
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"]/g, function(m) { return map[m]; });
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化字段配置
+    try {
+        window.formFields = JSON.parse('{{ fields_json|escapejs }}');
+    } catch (e) {
+        console.error('解析字段配置失败:', e);
+        window.formFields = [];
+    }
+    
+    // 导入的数据
+    let importedData = [];
+    try {
+        importedData = JSON.parse('{{ imported_data|safe|escapejs }}' || '[]');
+    } catch (e) {
+        console.error('解析导入数据失败:', e);
+        importedData = [];
+    }
+    
+    if (importedData && importedData.length > 0) {
+        // 清空现有表单
+        const tbody = document.getElementById('formset-body');
+        tbody.innerHTML = '';
+        
+        // 更新表单计数
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+        totalForms.value = importedData.length;
+        
+        // 为每条导入数据创建表单行
+        importedData.forEach((data, index) => {
+            const row = createNewFormRowWithData(index, data);
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+        
+        updateRowNumbers();
+        
+        // 重新绑定删除按钮事件
+        bindDeleteButtonEvents();
+    }
+    
+    // 初始化页面上已有的日期选择器
+    initFlatpickr();
+    
+    // 绑定按钮事件
+    document.getElementById('add-row-btn').addEventListener('click', function() {
+        addRow();
+    });
+    
+    document.getElementById('add-multiple-rows-btn').addEventListener('click', function() {
+        addMultipleRows(5);
+    });
+    
+    // 数据录入表单提交处理
+    const dataEntryForm = document.getElementById('dataEntryForm');
+    if (dataEntryForm) {
+        dataEntryForm.addEventListener('submit', function() {
+            // 显示加载遮罩
+            const overlay = document.getElementById('loadingOverlay');
+            const text = document.getElementById('loadingText');
+            if (overlay) overlay.style.display = 'flex';
+            if (text) text.textContent = '正在保存数据，请稍候...';
+            
+            // 禁用保存按钮防止重复提交
+            const saveBtn = document.getElementById('saveButton');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中...';
+            }
+        });
+    }
+});
+
+// 创建带数据的表单行
+function createNewFormRowWithData(index, data) {
+    let row = `<tr class="formset-row">
+        <td class="row-number">${index + 1}</td>
+        <td>
+            <input type="text" name="form-${index}-test_number" class="form-control form-control-sm" readonly placeholder="自动生成" style="background-color: #e9ecef;">
+        </td>`;
+    
+    // 添加动态字段
+    const fields = window.formFields || [];
+    for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        row += '<td>';
+        const fieldValue = data[field.field_code] || '';
+        
+        if (field.field_type === 'text') {
+            row += `<input type="text" name="form-${index}-${field.field_code}" class="form-control form-control-sm" value="${escapeHtml(fieldValue)}" placeholder="${escapeHtml(field.placeholder || '')}">`;
+        } else if (field.field_type === 'textarea') {
+            row += `<textarea name="form-${index}-${field.field_code}" class="form-control form-control-sm" rows="2" placeholder="${escapeHtml(field.placeholder || '')}">${escapeHtml(fieldValue)}</textarea>`;
+        } else if (field.field_type === 'number') {
+            row += `<input type="number" name="form-${index}-${field.field_code}" class="form-control form-control-sm" value="${fieldValue}" placeholder="${escapeHtml(field.placeholder || '')}">`;
+        } else if (field.field_type === 'decimal') {
+            row += `<input type="number" step="0.01" name="form-${index}-${field.field_code}" class="form-control form-control-sm" value="${fieldValue}" placeholder="${escapeHtml(field.placeholder || '')}">`;
+        } else if (field.field_type === 'date') {
+            row += `<input type="text" name="form-${index}-${field.field_code}" class="form-control form-control-sm flatpickr-date" value="${fieldValue}" placeholder="YYYY-MM-DD">`;
+        } else if (field.field_type === 'datetime') {
+            row += `<input type="text" name="form-${index}-${field.field_code}" class="form-control form-control-sm flatpickr-datetime" value="${fieldValue}" placeholder="YYYY-MM-DD HH:mm">`;
+        } else if (field.field_type === 'select') {
+            row += `<select name="form-${index}-${field.field_code}" class="form-select form-select-sm">
+                <option value="">请选择</option>`;
+            if (field.field_options && field.field_options.options) {
+                for (let j = 0; j < field.field_options.options.length; j++) {
+                    const option = field.field_options.options[j];
+                    const selected = fieldValue === option ? 'selected' : '';
+                    row += `<option value="${escapeHtml(option)}" ${selected}>${escapeHtml(option)}</option>`;
+                }
+            }
+            row += `</select>`;
+        } else if (field.field_type === 'checkbox') {
+            const checked = fieldValue && (fieldValue === 'true' || fieldValue === '1' || fieldValue === '是' || fieldValue === true) ? 'checked' : '';
+            row += `<input type="checkbox" name="form-${index}-${field.field_code}" class="form-check-input" ${checked}>`;
+        } else if (field.field_type === 'file') {
+            const accept = (field.field_options && field.field_options.accept) ? field.field_options.accept : 'image/*';
+            const cid = `count-form-${index}-${field.field_code}`;
+            row += `<input type="file" name="form-${index}-${field.field_code}" class="form-control form-control-sm file-multi-input" accept="${accept}" multiple data-count-id="${cid}">`;
+            row += `<small id="${cid}" class="text-muted">已选 0 张</small>`;
+        } else {
+            // 默认文本输入框
+            row += `<input type="text" name="form-${index}-${field.field_code}" class="form-control form-control-sm" value="${escapeHtml(fieldValue)}" placeholder="${escapeHtml(field.placeholder || '')}">`;
+        }
+        row += '</td>';
+    }
+    
+    row += `<td class="delete-column">
+            <button type="button" class="btn btn-danger btn-sm delete-row-btn" data-row-index="${index}">
+                <i class="fas fa-trash"></i> 删除
+            </button>
+            <input type="hidden" name="form-${index}-DELETE" value="" class="delete-hidden-input">
+        </td>
+    </tr>`;
+    
+    return row;
+}
+
+// 动态添加行
+function addRow() {
+    const tbody = document.getElementById('formset-body');
+    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+    const currentFormCount = parseInt(totalForms.value);
+    
+    // 创建新行
+    const newRow = createNewFormRow(currentFormCount);
+    tbody.insertAdjacentHTML('beforeend', newRow);
+    
+    // 更新表单计数
+    totalForms.value = currentFormCount + 1;
+    
+    // 更新行号
+    updateRowNumbers();
+    
+    // 重新绑定删除按钮事件
+    bindDeleteButtonEvents();
+    
+    // 初始化新增行的日期选择器
+    initFlatpickr(tbody.lastElementChild);
+}
+
+// 批量添加多行
+function addMultipleRows(count) {
+    for (let i = 0; i < count; i++) {
+        addRow();
+    }
+    // 重新绑定删除按钮事件
+    bindDeleteButtonEvents();
+    
+    // 初始化新增行的日期选择器（批量）
+    const tbody = document.getElementById('formset-body');
+    // 由于addMultipleRows调用addRow，addRow已经处理了单个初始化
+    // 这里不需要额外初始化，但为了保险起见，可以对整个tbody最后count行进行检查，
+    // 不过由于addRow是逐个添加并初始化的，所以这里不需要做任何事。
+}
+
+// 创建新表单行
+function createNewFormRow(index) {
+    let row = `<tr class="formset-row">
+        <td class="row-number">${index + 1}</td>
+        <td>
+            <input type="text" name="form-${index}-test_number" class="form-control form-control-sm" readonly placeholder="自动生成" style="background-color: #e9ecef;">
+        </td>`;
+    
+    // 添加动态字段
+    const fields = window.formFields || [];
+    for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        row += '<td>';
+        
+        if (field.field_type === 'text') {
+            row += `<input type="text" name="form-${index}-${field.field_code}" class="form-control form-control-sm" placeholder="${field.placeholder || ''}">`;
+        } else if (field.field_type === 'textarea') {
+            row += `<textarea name="form-${index}-${field.field_code}" class="form-control form-control-sm" rows="2" placeholder="${field.placeholder || ''}"></textarea>`;
+        } else if (field.field_type === 'number') {
+            row += `<input type="number" name="form-${index}-${field.field_code}" class="form-control form-control-sm" placeholder="${field.placeholder || ''}">`;
+        } else if (field.field_type === 'decimal') {
+            row += `<input type="number" step="0.01" name="form-${index}-${field.field_code}" class="form-control form-control-sm" placeholder="${field.placeholder || ''}">`;
+        } else if (field.field_type === 'date') {
+            row += `<input type="text" name="form-${index}-${field.field_code}" class="form-control form-control-sm flatpickr-date" placeholder="YYYY-MM-DD">`;
+        } else if (field.field_type === 'datetime') {
+            row += `<input type="text" name="form-${index}-${field.field_code}" class="form-control form-control-sm flatpickr-datetime" placeholder="YYYY-MM-DD HH:mm">`;
+        } else if (field.field_type === 'select') {
+            row += `<select name="form-${index}-${field.field_code}" class="form-select form-select-sm">
+                <option value="">请选择</option>`;
+            if (field.field_options && field.field_options.options) {
+                for (let j = 0; j < field.field_options.options.length; j++) {
+                    const option = field.field_options.options[j];
+                    row += `<option value="${option}">${option}</option>`;
+                }
+            }
+            row += `</select>`;
+        } else if (field.field_type === 'checkbox') {
+            row += `<input type="checkbox" name="form-${index}-${field.field_code}" class="form-check-input">`;
+        } else if (field.field_type === 'file') {
+            const accept = (field.field_options && field.field_options.accept) ? field.field_options.accept : 'image/*';
+            const cid = `count-form-${index}-${field.field_code}`;
+            row += `<input type="file" name="form-${index}-${field.field_code}" class="form-control form-control-sm file-multi-input" accept="${accept}" multiple data-count-id="${cid}">`;
+            row += `<small id="${cid}" class="text-muted">已选 0 张</small>`;
+        }
+        row += '</td>';
+    }
+    
+    row += `<td class="delete-column">
+            <button type="button" class="btn btn-danger btn-sm delete-row-btn" data-row-index="${index}">
+                <i class="fas fa-trash"></i> 删除
+            </button>
+            <input type="hidden" name="form-${index}-DELETE" value="" class="delete-hidden-input">
+        </td>
+    </tr>`;
+    
+    return row;
+}
+
+// 更新行号
+function updateRowNumbers() {
+    const rows = document.querySelectorAll('.formset-row');
+    rows.forEach((row, index) => {
+        // 只更新可见行的序号
+        if (row.style.display !== 'none') {
+            const rowNumber = row.querySelector('.row-number');
+            if (rowNumber) {
+                rowNumber.textContent = index + 1;
+            }
+        }
+    });
+}
+
+// 绑定删除按钮事件
+function bindDeleteButtonEvents() {
+    // 为所有删除按钮绑定事件
+    const deleteButtons = document.querySelectorAll('.delete-row-btn');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            const row = e.target.closest('tr');
+            const hiddenInput = row.querySelector('.delete-hidden-input');
+            
+            const ok = confirm('确认删除该行？');
+            if (!ok) return;
+            hiddenInput.value = 'on';
+            row.style.display = 'none';
+            updateRowNumbers();
+            if (typeof updatePagination === 'function') { updatePagination(); }
+        });
+    });
+}
+
+// 页面加载完成后绑定删除事件
+document.addEventListener('DOMContentLoaded', function() {
+    bindDeleteButtonEvents();
+    
+    const uploadForm = document.getElementById('excelUploadForm');
+    const fileInput = document.getElementById('excel_file');
+    if (uploadForm && fileInput) {
+        uploadForm.addEventListener('submit', function(e) {
+            const f = fileInput.files[0];
+            if (!f) return;
+            const name = f.name.toLowerCase();
+            if (!(name.endsWith('.xlsx') || name.endsWith('.xls'))) {
+                e.preventDefault();
+                alert('仅支持 .xlsx/.xls 文件');
+                return;
+            }
+            if (f.size > 10 * 1024 * 1024) {
+                e.preventDefault();
+                alert('文件过大，最大支持 10MB');
+                return;
+            }
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        });
+    }
+    
+    const totalFormsEl = document.getElementById('id_form-TOTAL_FORMS');
+    if (totalFormsEl) {
+        const total = parseInt(totalFormsEl.value || '0');
+        initPagination(total);
+    }
+    document.body.addEventListener('change', function(e){
+        const t = e.target;
+        if (t && t.classList && t.classList.contains('file-multi-input')) {
+            const cid = t.getAttribute('data-count-id');
+            const el = cid ? document.getElementById(cid) : null;
+            if (el) {
+                const n = (t.files && t.files.length) ? t.files.length : 0;
+                el.textContent = `已选 ${n} 张`;
+            }
+        }
+    });
+});
+
+const PAGE_SIZE = 20;
+let currentPage = 1;
+let totalPages = 1;
+
+function initPagination(totalRows) {
+    totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+    currentPage = 1;
+    updatePagination();
+}
+
+function updatePagination() {
+    const rows = Array.from(document.querySelectorAll('#formset-body tr'));
+    const visible = rows.filter(r => r.style.display !== 'none');
+    const totalVisible = visible.length;
+    totalPages = Math.max(1, Math.ceil(totalVisible / PAGE_SIZE));
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    let counter = 0;
+    visible.forEach((row, i) => {
+        if (i >= start && i < end) {
+            if (row.style.display === 'none') { row.style.display = ''; }
+            row.style.visibility = 'visible';
+        } else {
+            if (row.style.display !== 'none') { row.style.display = 'none'; row.style.visibility = 'hidden'; }
+        }
+    });
+    const info = document.getElementById('page-info');
+    if (info) info.textContent = `第 ${currentPage} / ${totalPages} 页`;
+}
+
+function goToPage(p) {
+    if (p < 1) p = 1;
+    if (p > totalPages) p = totalPages;
+    currentPage = p;
+    updatePagination();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const firstBtn = document.getElementById('first-page');
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
+    const lastBtn = document.getElementById('last-page');
+    if (firstBtn) firstBtn.addEventListener('click', function(){ goToPage(1); });
+    if (prevBtn) prevBtn.addEventListener('click', function(){ goToPage(currentPage - 1); });
+    if (nextBtn) nextBtn.addEventListener('click', function(){ goToPage(currentPage + 1); });
+    if (lastBtn) lastBtn.addEventListener('click', function(){ goToPage(totalPages); });
+});
+
+
+</script>
+{% endblock %}

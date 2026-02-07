@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}任务分解 - {{ task.task_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-sitemap me-2"></i>任务分解 - {{ task.task_number }}</h2>
+        <a href="{% url 'tasks:task_detail' task.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回任务详情
+        </a>
+    </div>
+
+    <!-- 主任务信息卡片 -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">主任务信息</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>任务编号：</strong>{{ task.task_number }}</p>
+                    <p><strong>任务名称：</strong>{{ task.task_name }}</p>
+                    <p><strong>试验类型：</strong>{{ task.test_type.name }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>优先级：</strong>{{ task.priority.name }}</p>
+                    <p><strong>状态：</strong>{{ task.status.name }}</p>
+                    <p><strong>负责人：</strong>{% if task.assignee %}{{ task.assignee.username }}{% else %}未分配{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分解表单 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-list-check me-2"></i>选择试验类型</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    请选择需要分解的试验类型，系统将为每个选中的类型创建一个独立的子任务。
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">{{ form.main_test_type.label }}</label>
+                    {{ form.main_test_type }}
+                    {% if form.main_test_type.errors %}
+                    <div class="text-danger mt-2">{{ form.main_test_type.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    {{ form.test_types.label_tag }}
+                    <div class="row mt-3" id="sub-types-container">
+                        {% for choice in form.test_types %}
+                        <div class="col-md-4 mb-3">
+                            <div class="form-check">
+                                {{ choice.tag }}
+                                <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                    {{ choice.choice_label }}
+                                    {% if choice.data.value in existing_types %}
+                                    <span class="badge bg-secondary ms-2">已存在</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-muted">请先选择总试验类型</div>
+                        {% endfor %}
+                    </div>
+                    {% if form.test_types.help_text %}
+                    <div class="form-text">{{ form.test_types.help_text }}</div>
+                    {% endif %}
+                    {% if form.test_types.errors %}
+                    <div class="text-danger mt-2">{{ form.test_types.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'tasks:task_detail' task.id %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i>取消
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check me-1"></i>确认分解
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 已存在的子任务列表 -->
+    {% if task.subtasks.exists %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>已有子任务 ({{ task.subtasks.count }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>子任务编号</th>
+                            <th>试验类型</th>
+                            <th>状态</th>
+                            <th>负责人</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subtask in task.subtasks.all %}
+                        <tr>
+                            <td>{{ subtask.subtask_number }}</td>
+                            <td>{{ subtask.test_type.name }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if subtask.status.code == 'completed' %}bg-success
+                                    {% elif subtask.status.code == 'in_progress' %}bg-primary
+                                    {% elif subtask.status.code == 'pending' %}bg-warning
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ subtask.status.name }}
+                                </span>
+                            </td>
+                            <td>{% if subtask.assignee %}{{ subtask.assignee.username }}{% else %}<span class="text-muted">未分配</span>{% endif %}</td>
+                            <td>
+                                <a href="{% url 'tasks:subtask_detail' subtask.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> 查看
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const mainTypeSelect = document.getElementById('id_main_test_type');
+        const subTypesContainer = document.getElementById('sub-types-container');
+        
+        // 监听总类型变化
+        mainTypeSelect.addEventListener('change', function() {
+            const parentId = this.value;
+            if (!parentId) {
+                subTypesContainer.innerHTML = '<div class="col-12 text-muted">请选择总试验类型</div>';
+                return;
+            }
+            
+            // 显示加载中
+            subTypesContainer.innerHTML = '<div class="col-12 text-center"><div class="spinner-border text-primary" role="status"></div></div>';
+            
+            fetch(`/tasks/api/test-types/sub-types/?parent_id=${parentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        subTypesContainer.innerHTML = '';
+                        
+                        if (data.data.length === 0) {
+                            subTypesContainer.innerHTML = '<div class="col-12 text-muted">该类型下暂无分试验类型</div>';
+                            return;
+                        }
+
+                        // 如果只有一条数据且是继承的主类型，显示提示
+                        if (data.data.length === 1 && data.data[0].is_inherited) {
+                             const alertDiv = document.createElement('div');
+                             alertDiv.className = 'col-12 mb-2';
+                             alertDiv.innerHTML = '<div class="alert alert-warning py-2 small"><i class="fas fa-exclamation-circle me-1"></i> 该类型无子类型，已自动选择主类型作为默认分解类型</div>';
+                             subTypesContainer.appendChild(alertDiv);
+                        }
+
+                        data.data.forEach(type => {
+                            const div = document.createElement('div');
+                            div.className = 'col-md-4 mb-3';
+                            
+                            // 检查是否已存在
+                            const isExisting = false; 
+                            
+                            const isChecked = type.is_inherited ? 'checked' : '';
+                            const badge = type.is_inherited ? '<span class="badge bg-info ms-2">继承配置</span>' : '';
+
+                            div.innerHTML = `
+                                <div class="form-check">
+                                    <input type="checkbox" name="test_types" value="${type.id}" class="form-check-input" id="id_test_types_${type.id}" ${isChecked}>
+                                    <label class="form-check-label" for="id_test_types_${type.id}">
+                                        ${type.name}
+                                        ${badge}
+                                    </label>
+                                </div>
+                            `;
+                            subTypesContainer.appendChild(div);
+                        });
+                    } else {
+                        subTypesContainer.innerHTML = `<div class="col-12 text-danger">加载失败: ${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    subTypesContainer.innerHTML = `<div class="col-12 text-danger">网络错误: ${error}</div>`;
+                });
+        });
+    });
+</script>
+{% endblock %}

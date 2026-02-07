@@ -1,0 +1,410 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if action == 'create' %}新增{{ data_name }}数据{% else %}编辑{{ data_name }}数据{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .form-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+    }
+    
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .form-section h5 {
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .required-field::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .field-help {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .btn-save {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 10px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        border: none;
+        color: white;
+        padding: 10px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        color: white;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        border: none;
+        color: white;
+        padding: 10px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+        transform: translateY(-2px);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'test_data:index' %}">试验数据</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'test_data:list' data_type %}">{{ data_name }}</a></li>
+            <li class="breadcrumb-item active">
+                {% if action == 'create' %}新增数据{% else %}编辑数据{% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="form-card">
+                <div class="form-header">
+                    <h3 class="mb-0">
+                        <i class="fas fa-{% if action == 'create' %}plus{% else %}edit{% endif %}"></i>
+                        {% if action == 'create' %}新增{{ data_name }}数据{% else %}编辑{{ data_name }}数据{% endif %}
+                    </h3>
+                    {% if action == 'edit' %}
+                    <p class="mb-0 mt-2 opacity-75">样品编号：{{ test_data.sample_id }}</p>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body p-4">
+                    <form method="post" id="testDataForm">
+                        {% csrf_token %}
+                        
+                        <!-- 基本信息 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-info-circle"></i> 基本信息</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.sample_id.id_for_label }}" class="required-field">样品编号</label>
+                                        {{ form.sample_id }}
+                                        {% if form.sample_id.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.sample_id.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="field-help">请输入唯一的样品编号</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.test_task.id_for_label }}">试验任务</label>
+                                        {{ form.test_task }}
+                                        {% if form.test_task.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.test_task.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.test_date.id_for_label }}" class="required-field">试验日期</label>
+                                        {{ form.test_date }}
+                                        {% if form.test_date.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.test_date.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.tester.id_for_label }}">试验员</label>
+                                        {{ form.tester }}
+                                        {% if form.tester.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.tester.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="field-help">留空则默认为当前用户</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 试验条件 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-cog"></i> 试验条件</h5>
+                            <div class="row">
+                                {% if form.temperature %}
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.temperature.id_for_label }}">温度 (°C)</label>
+                                        {{ form.temperature }}
+                                        {% if form.temperature.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.temperature.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if form.humidity %}
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.humidity.id_for_label }}">湿度 (%)</label>
+                                        {{ form.humidity }}
+                                        {% if form.humidity.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.humidity.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if form.impact_energy %}
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.impact_energy.id_for_label }}">冲击能量 (J)</label>
+                                        {{ form.impact_energy }}
+                                        {% if form.impact_energy.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.impact_energy.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if form.strain_rate %}
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.strain_rate.id_for_label }}">应变速率 (s⁻¹)</label>
+                                        {{ form.strain_rate }}
+                                        {% if form.strain_rate.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.strain_rate.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if form.stress_level %}
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.stress_level.id_for_label }}">应力水平 (MPa)</label>
+                                        {{ form.stress_level }}
+                                        {% if form.stress_level.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.stress_level.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if form.corrosion_medium %}
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.corrosion_medium.id_for_label }}">腐蚀介质</label>
+                                        {{ form.corrosion_medium }}
+                                        {% if form.corrosion_medium.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.corrosion_medium.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- 试验数据 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-chart-line"></i> 试验数据</h5>
+                            <div class="row">
+                                {% for field in form %}
+                                    {% if 'friction_coefficient' in field.name or 'slip_resistance' in field.name or 'impact_strength' in field.name or 'fracture_type' in field.name or 'tensile_strength' in field.name or 'yield_strength' in field.name or 'elongation' in field.name or 'elastic_modulus' in field.name or 'compressive_strength' in field.name or 'cycle_count' in field.name or 'stress_amplitude' in field.name or 'hardness_value' in field.name or 'hardness_type' in field.name or 'creep_strain' in field.name or 'corrosion_rate' in field.name %}
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% if field.errors %}
+                                                <div class="invalid-feedback d-block">{{ field.errors.0 }}</div>
+                                            {% endif %}
+                                            {% if field.help_text %}
+                                                <div class="field-help">{{ field.help_text }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- 试验结果 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-clipboard-check"></i> 试验结果</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.result.id_for_label }}" class="required-field">试验结果</label>
+                                        {{ form.result }}
+                                        {% if form.result.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.result.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="{{ form.remarks.id_for_label }}">备注</label>
+                                        {{ form.remarks }}
+                                        {% if form.remarks.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.remarks.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="field-help">可以记录试验过程中的特殊情况或注意事项</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 表单按钮 -->
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-save mr-3">
+                                <i class="fas fa-save"></i> 
+                                {% if action == 'create' %}创建数据{% else %}保存修改{% endif %}
+                            </button>
+                            <a href="{% if action == 'edit' %}{% url 'test_data:detail' data_type test_data.pk %}{% else %}{% url 'test_data:list' data_type %}{% endif %}" 
+                               class="btn btn-cancel mr-3">
+                                <i class="fas fa-times"></i> 取消
+                            </a>
+                            {% if action == 'edit' %}
+                            <button type="button" class="btn btn-delete" onclick="deleteData()">
+                                <i class="fas fa-trash"></i> 删除
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 表单验证
+    $('#testDataForm').on('submit', function(e) {
+        var isValid = true;
+        
+        // 检查必填字段
+        $('input[required], select[required]').each(function() {
+            if (!$(this).val()) {
+                isValid = false;
+                $(this).addClass('is-invalid');
+            } else {
+                $(this).removeClass('is-invalid');
+            }
+        });
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert('请填写所有必填字段');
+        }
+    });
+    
+    // 实时验证
+    $('input, select, textarea').on('blur', function() {
+        if ($(this).attr('required') && !$(this).val()) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    // 数值字段验证
+    $('input[type="number"]').on('input', function() {
+        var value = parseFloat($(this).val());
+        var min = parseFloat($(this).attr('min'));
+        var max = parseFloat($(this).attr('max'));
+        
+        if (!isNaN(min) && value < min) {
+            $(this).addClass('is-invalid');
+        } else if (!isNaN(max) && value > max) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    // 日期字段默认值
+    if (!$('#id_test_date').val()) {
+        var today = new Date().toISOString().split('T')[0];
+        $('#id_test_date').val(today);
+    }
+});
+
+{% if action == 'edit' %}
+function deleteData() {
+    if (confirm('确定要删除这条试验数据吗？删除后无法恢复。')) {
+        $.ajax({
+            url: '{% url "test_data:delete" data_type test_data.pk %}',
+            type: 'POST',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    window.location.href = '{% url "test_data:list" data_type %}';
+                } else {
+                    alert('删除失败：' + response.message);
+                }
+            },
+            error: function() {
+                alert('删除失败，请重试');
+            }
+        });
+    }
+}
+{% endif %}
+</script>
+{% endblock %}

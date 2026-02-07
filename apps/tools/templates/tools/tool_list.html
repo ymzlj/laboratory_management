@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}工具列表 - 试验室管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+    }
+    
+    .tool-table {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+    }
+    
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-borrowed {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+    
+    .status-maintenance {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-lost {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-retired {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .bulk-actions {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: none;
+    }
+    
+    .table-responsive {
+        border-radius: 10px;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">工具列表</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item active">工具管理</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'tools:create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 新增工具
+            </a>
+            <a href="?export=csv{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.location %}&location={{ request.GET.location }}{% endif %}" class="btn btn-outline-success">
+                <i class="fas fa-download"></i> 导出CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- 搜索筛选 -->
+    <div class="card search-card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-search"></i> 搜索筛选
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="searchForm">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        {{ form.search.label_tag }}
+                        {{ form.search }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        {{ form.status.label_tag }}
+                        {{ form.status }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        {{ form.type.label_tag }}
+                        {{ form.type }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        {{ form.location.label_tag }}
+                        {{ form.location }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12 text-end">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-search"></i> 搜索
+                        </button>
+                        <a href="{% url 'tools:list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-undo"></i> 重置
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 批量操作工具栏 -->
+    <div class="bulk-actions" id="bulkActions">
+        <div class="d-flex justify-content-between align-items-center">
+            <span id="selectedCount">已选择 0 个工具</span>
+            <div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="bulkDelete()">
+                    <i class="fas fa-trash"></i> 批量删除
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
+                    <i class="fas fa-times"></i> 取消选择
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工具列表 -->
+    <div class="tool-table">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40">
+                            <input type="checkbox" id="selectAll" class="form-check-input">
+                        </th>
+                        <th>工具编号</th>
+                        <th>工具名称</th>
+                        <th>型号</th>
+                        <th>类型</th>
+                        <th>状态</th>
+                        <th>位置</th>
+                        <th>负责人</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tool in tools %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="tool_ids" value="{{ tool.id }}" class="form-check-input tool-checkbox">
+                        </td>
+                        <td>
+                            <a href="{% url 'tools:detail' tool.pk %}" class="text-decoration-none">
+                                {{ tool.tool_id }}
+                            </a>
+                        </td>
+                        <td>{{ tool.name }}</td>
+                        <td>{{ tool.model }}</td>
+                        <td>{{ tool.type }}</td>
+                        <td>
+                            <span class="status-badge status-{{ tool.status }}">
+                                {{ tool.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ tool.location }}</td>
+                        <td>
+                            {% if tool.responsible_person %}
+                                {{ tool.responsible_person.get_full_name }}
+                            {% else %}
+                                <span class="text-muted">未分配</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'tools:detail' tool.pk %}" 
+                                   class="btn btn-outline-info" 
+                                   data-bs-toggle="tooltip" 
+                                   title="查看详情">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'tools:edit' tool.pk %}" 
+                                   class="btn btn-outline-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="编辑">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-outline-danger" 
+                                        data-bs-toggle="tooltip" 
+                                        title="删除"
+                                        onclick="deleteTool({{ tool.pk }}, '{{ tool.name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="fas fa-tools fa-3x mb-3"></i>
+                            <br>
+                            暂无工具数据
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="工具列表分页">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">首页</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">上一页</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">下一页</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">末页</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <div class="text-center text-muted mt-2">
+                显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条记录
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除工具 <strong id="toolName"></strong> 吗？</p>
+                <p class="text-danger">此操作不可撤销！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="post" id="deleteForm" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量删除表单 -->
+<form method="post" id="bulkDeleteForm" action="{% url 'tools:bulk_delete' %}" style="display: none;">
+    {% csrf_token %}
+    <div id="bulkDeleteInputs"></div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 初始化工具提示
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    // 全选/取消全选
+    $('#selectAll').change(function() {
+        $('.tool-checkbox').prop('checked', this.checked);
+        updateBulkActions();
+    });
+    
+    // 单个复选框变化
+    $('.tool-checkbox').change(function() {
+        updateBulkActions();
+        
+        // 更新全选状态
+        const total = $('.tool-checkbox').length;
+        const checked = $('.tool-checkbox:checked').length;
+        $('#selectAll').prop('indeterminate', checked > 0 && checked < total);
+        $('#selectAll').prop('checked', checked === total);
+    });
+});
+
+function updateBulkActions() {
+    const checkedCount = $('.tool-checkbox:checked').length;
+    if (checkedCount > 0) {
+        $('#bulkActions').show();
+        $('#selectedCount').text(`已选择 ${checkedCount} 个工具`);
+    } else {
+        $('#bulkActions').hide();
+    }
+}
+
+function clearSelection() {
+    $('.tool-checkbox').prop('checked', false);
+    $('#selectAll').prop('checked', false);
+    $('#selectAll').prop('indeterminate', false);
+    updateBulkActions();
+}
+
+function deleteTool(toolId, toolName) {
+    $('#toolName').text(toolName);
+    $('#deleteForm').attr('action', `/tools/${toolId}/delete/`);
+    $('#deleteModal').modal('show');
+}
+
+function bulkDelete() {
+    const checkedBoxes = $('.tool-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+        alert('请选择要删除的工具');
+        return;
+    }
+    
+    if (confirm(`确定要删除选中的 ${checkedBoxes.length} 个工具吗？此操作不可撤销！`)) {
+        const inputs = $('#bulkDeleteInputs');
+        inputs.empty();
+        
+        checkedBoxes.each(function() {
+            inputs.append(`<input type="hidden" name="tool_ids" value="${this.value}">`);
+        });
+        
+        $('#bulkDeleteForm').submit();
+    }
+}
+</script>
+{% endblock %}

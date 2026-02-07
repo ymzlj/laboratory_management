@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load task_extras %}
+
+{% block title %}录入试验数据 - {{ subtask.subtask_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-edit me-2"></i>录入试验数据 - {{ subtask.subtask_number }}</h2>
+        <a href="{% url 'tasks:subtask_detail' subtask.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回子任务详情
+        </a>
+    </div>
+
+    <!-- 子任务信息卡片 -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">子任务信息</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>子任务编号：</strong>{{ subtask.subtask_number }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>试验类型：</strong>{{ subtask.test_type.name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>负责人：</strong>{% if subtask.assignee %}{{ subtask.assignee.username }}{% else %}未分配{% endif %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据录入表单 -->
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <!-- 试验准备 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>试验准备</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.test_conditions.id_for_label }}" class="form-label">
+                        {{ form.test_conditions.label }}
+                    </label>
+                    {{ form.test_conditions }}
+                    {% if form.test_conditions.errors %}
+                        <div class="text-danger small">{{ form.test_conditions.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.test_method.id_for_label }}" class="form-label">
+                        {{ form.test_method.label }}
+                    </label>
+                    {{ form.test_method }}
+                    {% if form.test_method.errors %}
+                        <div class="text-danger small">{{ form.test_method.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.test_equipment.id_for_label }}" class="form-label">
+                        {{ form.test_equipment.label }}
+                    </label>
+                    {{ form.test_equipment }}
+                    {% if form.test_equipment.errors %}
+                        <div class="text-danger small">{{ form.test_equipment.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 动态字段（根据试验类型配置） -->
+        {% if custom_fields %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-database me-2"></i>{{ subtask.test_type.name }} - 专用数据</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for field_config in custom_fields %}
+                        {% with field_name="custom_"|add:field_config.field_code %}
+                        {% with field=form|attr:field_name %}
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label">
+                                {{ field.label }}
+                                {% if field_config.is_required %}
+                                    <span class="text-danger">*</span>
+                                {% endif %}
+                            </label>
+                            
+                            {% if field_config.field_type == 'checkbox' %}
+                                <div class="form-check">
+                                    {{ field }}
+                                    <label class="form-check-label" for="{{ field.id_for_label }}">
+                                        {{ field.label }}
+                                    </label>
+                                </div>
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
+                            
+                            {% if field.help_text %}
+                                <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% if field.errors %}
+                                <div class="text-danger small">{{ field.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        {% endwith %}
+                        {% endwith %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 试验结果 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>试验结果</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="{{ form.test_result.id_for_label }}" class="form-label">
+                        {{ form.test_result.label }}
+                    </label>
+                    {{ form.test_result }}
+                    {% if form.test_result.errors %}
+                        <div class="text-danger small">{{ form.test_result.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.test_conclusion.id_for_label }}" class="form-label">
+                        {{ form.test_conclusion.label }}
+                    </label>
+                    {{ form.test_conclusion }}
+                    {% if form.test_conclusion.errors %}
+                        <div class="text-danger small">{{ form.test_conclusion.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.remarks.id_for_label }}" class="form-label">
+                        {{ form.remarks.label }}
+                    </label>
+                    {{ form.remarks }}
+                    {% if form.remarks.errors %}
+                        <div class="text-danger small">{{ form.remarks.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.data_file.id_for_label }}" class="form-label">
+                        {{ form.data_file.label }}
+                    </label>
+                    {{ form.data_file }}
+                    {% if form.data_file.help_text %}
+                        <div class="form-text">{{ form.data_file.help_text }}</div>
+                    {% endif %}
+                    {% if form.data_file.errors %}
+                        <div class="text-danger small">{{ form.data_file.errors.0 }}</div>
+                    {% endif %}
+                    {% if data.data_file %}
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                当前文件：<a href="{{ data.data_file.url }}" target="_blank">{{ data.data_file.name }}</a>
+                            </small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 表单验证错误 -->
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- 提交按钮 -->
+        <div class="d-flex justify-content-end gap-2 mb-4">
+            <a href="{% url 'tasks:subtask_detail' subtask.id %}" class="btn btn-secondary">
+                <i class="fas fa-times me-1"></i>取消
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>保存数据
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,489 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ data_name }}数据详情{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .detail-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 25px;
+    }
+    
+    .detail-header h2 {
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    
+    .detail-header .meta-info {
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+    
+    .info-section {
+        padding: 25px;
+        border-bottom: 1px solid #f1f3f4;
+    }
+    
+    .info-section:last-child {
+        border-bottom: none;
+    }
+    
+    .info-section h5 {
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .info-row {
+        margin-bottom: 15px;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+        margin-bottom: 5px;
+    }
+    
+    .info-value {
+        color: #495057;
+        font-size: 1.1rem;
+    }
+    
+    .result-badge {
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+    }
+    
+    .action-buttons {
+        padding: 25px;
+        background: #f8f9fa;
+        text-align: center;
+    }
+    
+    .btn-action {
+        margin: 0 10px;
+        padding: 10px 25px;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+    }
+    
+    .btn-edit {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        color: white;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        border: none;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+        box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        color: white;
+    }
+    
+    .data-chart {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .empty-value {
+        color: #6c757d;
+        font-style: italic;
+    }
+    
+    .unit {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-left: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'test_data:index' %}">试验数据</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'test_data:list' data_type %}">{{ data_name }}</a></li>
+            <li class="breadcrumb-item active">{{ test_data.sample_id }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- 基本信息 -->
+            <div class="detail-card">
+                <div class="detail-header">
+                    <h2>{{ test_data.sample_id }}</h2>
+                    <div class="meta-info">
+                        <i class="fas fa-flask"></i> {{ data_name }}
+                        <span class="mx-3">|</span>
+                        <i class="fas fa-calendar"></i> {{ test_data.test_date|date:"Y年m月d日" }}
+                        <span class="mx-3">|</span>
+                        <i class="fas fa-user"></i> {{ test_data.tester.get_full_name|default:test_data.tester.username }}
+                    </div>
+                </div>
+
+                <!-- 试验条件 -->
+                <div class="info-section">
+                    <h5><i class="fas fa-cog"></i> 试验条件</h5>
+                    <div class="row">
+                        {% if test_data.temperature is not None %}
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">温度</div>
+                                <div class="info-value">{{ test_data.temperature }}<span class="unit">°C</span></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if test_data.humidity is not None %}
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">湿度</div>
+                                <div class="info-value">{{ test_data.humidity }}<span class="unit">%</span></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if test_data.impact_energy is not None %}
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">冲击能量</div>
+                                <div class="info-value">{{ test_data.impact_energy }}<span class="unit">J</span></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if test_data.strain_rate is not None %}
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">应变速率</div>
+                                <div class="info-value">{{ test_data.strain_rate }}<span class="unit">s⁻¹</span></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if test_data.stress_level is not None %}
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">应力水平</div>
+                                <div class="info-value">{{ test_data.stress_level }}<span class="unit">MPa</span></div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if test_data.corrosion_medium %}
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">腐蚀介质</div>
+                                <div class="info-value">{{ test_data.corrosion_medium }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 试验数据 -->
+                <div class="info-section">
+                    <h5><i class="fas fa-chart-line"></i> 试验数据</h5>
+                    <div class="row">
+                        {% if data_type == 'anti_slip' %}
+                            {% if test_data.friction_coefficient is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">摩擦系数</div>
+                                    <div class="info-value">{{ test_data.friction_coefficient }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if test_data.slip_resistance is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">防滑阻力</div>
+                                    <div class="info-value">{{ test_data.slip_resistance }}<span class="unit">N</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% elif data_type == 'metal_impact' %}
+                            {% if test_data.impact_strength is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">冲击强度</div>
+                                    <div class="info-value">{{ test_data.impact_strength }}<span class="unit">J/cm²</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if test_data.fracture_type %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">断裂类型</div>
+                                    <div class="info-value">{{ test_data.fracture_type }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% elif data_type == 'metal_tensile' %}
+                            {% if test_data.tensile_strength is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">抗拉强度</div>
+                                    <div class="info-value">{{ test_data.tensile_strength }}<span class="unit">MPa</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if test_data.yield_strength is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">屈服强度</div>
+                                    <div class="info-value">{{ test_data.yield_strength }}<span class="unit">MPa</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if test_data.elongation is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">延伸率</div>
+                                    <div class="info-value">{{ test_data.elongation }}<span class="unit">%</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if test_data.elastic_modulus is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">弹性模量</div>
+                                    <div class="info-value">{{ test_data.elastic_modulus }}<span class="unit">GPa</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% elif data_type == 'compression' %}
+                            {% if test_data.compressive_strength is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">压缩强度</div>
+                                    <div class="info-value">{{ test_data.compressive_strength }}<span class="unit">MPa</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if test_data.elastic_modulus is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">弹性模量</div>
+                                    <div class="info-value">{{ test_data.elastic_modulus }}<span class="unit">GPa</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% elif data_type == 'fatigue' %}
+                            {% if test_data.cycle_count is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">循环次数</div>
+                                    <div class="info-value">{{ test_data.cycle_count }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if test_data.stress_amplitude is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">应力幅值</div>
+                                    <div class="info-value">{{ test_data.stress_amplitude }}<span class="unit">MPa</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% elif data_type == 'hardness' %}
+                            {% if test_data.hardness_value is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">硬度值</div>
+                                    <div class="info-value">{{ test_data.hardness_value }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if test_data.hardness_type %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">硬度类型</div>
+                                    <div class="info-value">{{ test_data.get_hardness_type_display }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% elif data_type == 'creep' %}
+                            {% if test_data.creep_strain is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">蠕变应变</div>
+                                    <div class="info-value">{{ test_data.creep_strain }}<span class="unit">%</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% elif data_type == 'corrosion' %}
+                            {% if test_data.corrosion_rate is not None %}
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">腐蚀速率</div>
+                                    <div class="info-value">{{ test_data.corrosion_rate }}<span class="unit">mm/year</span></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 试验结果 -->
+                <div class="info-section">
+                    <h5><i class="fas fa-clipboard-check"></i> 试验结果</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">试验结果</div>
+                                <div class="info-value">
+                                    <span class="badge result-badge badge-{% if test_data.result == 'pass' %}success{% elif test_data.result == 'fail' %}danger{% else %}warning{% endif %}">
+                                        {{ test_data.get_result_display }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% if test_data.remarks %}
+                        <div class="col-md-12">
+                            <div class="info-row">
+                                <div class="info-label">备注</div>
+                                <div class="info-value">{{ test_data.remarks }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="action-buttons">
+                    <a href="{% url 'test_data:edit' data_type test_data.pk %}" class="btn btn-edit btn-action">
+                        <i class="fas fa-edit"></i> 编辑数据
+                    </a>
+                    <a href="{% url 'test_data:list' data_type %}" class="btn btn-secondary btn-action">
+                        <i class="fas fa-list"></i> 返回列表
+                    </a>
+                    <button type="button" class="btn btn-delete btn-action" onclick="deleteData()">
+                        <i class="fas fa-trash"></i> 删除数据
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- 基本信息卡片 -->
+            <div class="detail-card">
+                <div class="info-section">
+                    <h5><i class="fas fa-info-circle"></i> 基本信息</h5>
+                    <div class="info-row">
+                        <div class="info-label">试验任务</div>
+                        <div class="info-value">
+                            {% if test_data.test_task %}
+                                <a href="#" class="text-decoration-none">{{ test_data.test_task.title }}</a>
+                            {% else %}
+                                <span class="empty-value">未关联任务</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">试验类型</div>
+                        <div class="info-value">{{ data_name }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">创建时间</div>
+                        <div class="info-value">{{ test_data.created_at|date:"Y-m-d H:i:s" }}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">更新时间</div>
+                        <div class="info-value">{{ test_data.updated_at|date:"Y-m-d H:i:s" }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 相关操作 -->
+            <div class="detail-card">
+                <div class="info-section">
+                    <h5><i class="fas fa-tools"></i> 相关操作</h5>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'test_data:create' data_type %}" class="btn btn-outline-primary">
+                            <i class="fas fa-plus"></i> 创建同类数据
+                        </a>
+                        <a href="#" class="btn btn-outline-success">
+                            <i class="fas fa-download"></i> 导出数据
+                        </a>
+                        <a href="#" class="btn btn-outline-info">
+                            <i class="fas fa-print"></i> 打印报告
+                        </a>
+                        <a href="{% url 'test_data:statistics' %}" class="btn btn-outline-warning">
+                            <i class="fas fa-chart-bar"></i> 查看统计
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteData() {
+    if (confirm('确定要删除这条试验数据吗？删除后无法恢复。')) {
+        $.ajax({
+            url: '{% url "test_data:delete" data_type test_data.pk %}',
+            type: 'POST',
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    window.location.href = '{% url "test_data:list" data_type %}';
+                } else {
+                    alert('删除失败：' + response.message);
+                }
+            },
+            error: function() {
+                alert('删除失败，请重试');
+            }
+        });
+    }
+}
+
+$(document).ready(function() {
+    // 添加动画效果
+    $('.detail-card').each(function(index) {
+        $(this).css('opacity', '0').delay(index * 200).animate({
+            opacity: 1
+        }, 600);
+    });
+});
+</script>
+{% endblock %}

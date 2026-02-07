@@ -1,0 +1,69 @@
+{% extends 'base_auth.html' %}
+
+{% block title %}登录 - 试验室管理系统{% endblock %}
+
+{% block content %}
+<div class="login-card">
+    <div class="login-header">
+        <h1>试验室管理系统</h1>
+        <p>制动器制造企业试验数据管理平台</p>
+    </div>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label class="form-label" for="{{ form.username.id_for_label }}">用户工号</label>
+            <div class="input-icon">
+                <i class="fas fa-user"></i>
+                {{ form.username }}
+            </div>
+            {% if form.username.errors %}
+                <div class="text-danger">
+                    {% for error in form.username.errors %}
+                        <small>{{ error }}</small>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label" for="{{ form.password.id_for_label }}">密码</label>
+            <div class="input-icon">
+                <i class="fas fa-lock"></i>
+                {{ form.password }}
+            </div>
+            {% if form.password.errors %}
+                <div class="text-danger">
+                    {% for error in form.password.errors %}
+                        <small>{{ error }}</small>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="form-options">
+            <div class="checkbox">
+                <input type="checkbox" id="remember">
+                <label for="remember">记住登录状态</label>
+            </div>
+            <a href="#" class="forgot-password">忘记密码？</a>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-sign-in-alt mr-2"></i>登录
+        </button>
+    </form>
+    
+    <div class="login-footer">
+        <p>© 2025 试验室管理系统 版权所有</p>
+    </div>
+</div>
+{% endblock %}

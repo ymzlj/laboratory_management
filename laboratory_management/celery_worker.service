@@ -1,0 +1,16 @@
+[Unit]
+Description=Celery Worker Service
+After=network.target
+
+[Service]
+Type=simple
+User=ymz
+Group=ymz
+WorkingDirectory=/opt/laboratory_management
+Environment=PATH=/opt/laboratory_management/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/laboratory_management/venv/bin/celery -A laboratory_management worker --loglevel=info
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

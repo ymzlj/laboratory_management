@@ -1,0 +1,423 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load task_extras %}
+
+{% block title %}子任务详情 - {{ subtask.subtask_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-tasks me-2"></i>{{ subtask.subtask_number }}</h2>
+            <p class="text-muted mb-0">{{ subtask.subtask_name }}</p>
+        </div>
+        <div>
+            <a href="{% url 'tasks:task_detail' subtask.parent_task.id %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i>返回主任务
+            </a>
+            {% if user == subtask.assignee or user.role == 'manager' or user.role == 'admin' %}
+                <!-- 通用批量录入（适用于所有试验类型） -->
+                <a href="{% url 'tasks:generic_test_data_entry' subtask.id %}" class="btn btn-success me-2" onclick="showLoading(this)" id="batch-data-entry-btn">
+                    <i class="fas fa-table me-1"></i>批量数据录入
+                </a>
+                <a href="{% url 'tasks:generic_test_data_list' subtask.id %}" class="btn btn-info me-2" onclick="showLoading(this)" id="view-data-btn">
+                    <i class="fas fa-list me-1"></i>查看已录入数据
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：子任务信息 -->
+        <div class="col-md-8">
+            <!-- 基本信息 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>子任务信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>子任务编号：</strong></td>
+                                    <td>{{ subtask.subtask_number }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>试验类型：</strong></td>
+                                    <td>{{ subtask.test_type.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>状态：</strong></td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if subtask.status.code == 'completed' %}bg-success
+                                            {% elif subtask.status.code == 'in_progress' %}bg-primary
+                                            {% elif subtask.status.code == 'pending' %}bg-warning
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ subtask.status.name }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>负责人：</strong></td>
+                                    <td>
+                                        {% if subtask.assignee %}
+                                            {{ subtask.assignee.username }}
+                                        {% else %}
+                                            <span class="text-muted">未分配</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>开始日期：</strong></td>
+                                    <td>{{ subtask.start_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>结束日期：</strong></td>
+                                    <td>{{ subtask.end_date|date:"Y-m-d" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>创建时间：</strong></td>
+                                    <td>{{ subtask.created_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>更新时间：</strong></td>
+                                    <td>{{ subtask.updated_at|date:"Y-m-d H:i" }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    {% if subtask.description %}
+                    <div class="mt-3">
+                        <strong>描述：</strong>
+                        <p class="mt-2">{{ subtask.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+
+
+            <!-- 试验参数（元数据） -->
+            {% if meta_fields %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-sliders-h me-2"></i>试验参数</h5>
+                    <!-- 移除原来的编辑按钮，改为直接在下方表单提交 -->
+                </div>
+                <div class="card-body">
+                    <form action="{% url 'tasks:subtask_data_edit' subtask.id %}" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <!-- 渲染标准字段为隐藏域，防止被覆盖为空 -->
+                        {{ meta_form.test_conditions.as_hidden }}
+                        {{ meta_form.test_method.as_hidden }}
+                        {{ meta_form.test_equipment.as_hidden }}
+                        {{ meta_form.test_result.as_hidden }}
+                        {{ meta_form.test_conclusion.as_hidden }}
+                        {{ meta_form.remarks.as_hidden }}
+                        
+                        <div class="row align-items-end">
+                            {% for field in meta_fields %}
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small text-muted">{{ field.field_name }}</label>
+                                    {% with field_key="custom_"|add:field.field_code %}
+                                        {% with bound_field=meta_form|get_item:field_key %}
+                                            {{ bound_field }}
+                                            {% if bound_field.errors %}
+                                                <div class="text-danger small">{{ bound_field.errors }}</div>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% endwith %}
+                                </div>
+                            {% endfor %}
+                            <div class="col-12 text-end">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-save me-1"></i>保存参数
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 批量试验数据 -->
+            {% if batch_fields %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-database me-2"></i>{{ subtask.test_type.name }} - 数据列表</h5>
+                    <span class="badge bg-light text-dark">{{ test_data_list|length }} 条记录</span>
+                </div>
+                <div class="card-body">
+                    {% if test_data_list %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>试验编号</th>
+                                    {% for field in batch_fields %}
+                                    <th>{{ field.field_name }}</th>
+                                    {% endfor %}
+                                    <th>录入时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in test_data_list|slice:":10" %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td><code>{{ item.test_number }}</code></td>
+                                    {% for field in batch_fields %}
+                                        <td>
+                                            {% with val=item|get_item:field.field_code %}
+                                                {% if val %}{{ val }}{% else %}-{% endif %}
+                                            {% endwith %}
+                                        </td>
+                                    {% endfor %}
+                                    <td><small>{{ item.created_at }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if test_data_list|length > 10 %}
+                    <div class="text-center mt-2">
+                        <a href="{% url 'tasks:generic_test_data_list' subtask.id %}" class="btn btn-sm btn-link">查看全部数据 &raquo;</a>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p>暂无数据，请点击上方“批量数据录入”按钮添加数据。</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 试验结果 -->
+            {% if data_instance.test_result or data_instance.test_conclusion %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>试验结果</h5>
+                </div>
+                <div class="card-body">
+                    {% if data_instance.test_result %}
+                    <div class="mb-3">
+                        <h6>试验结果</h6>
+                        <pre class="bg-light p-3 rounded">{{ data_instance.test_result }}</pre>
+                    </div>
+                    {% endif %}
+                    
+                    {% if data_instance.test_conclusion %}
+                    <div class="mb-3">
+                        <h6>试验结论</h6>
+                        <pre class="bg-light p-3 rounded">{{ data_instance.test_conclusion }}</pre>
+                    </div>
+                    {% endif %}
+                    
+                    {% if data_instance.remarks %}
+                    <div class="mb-3">
+                        <h6>备注</h6>
+                        <p>{{ data_instance.remarks }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if data_instance.data_file %}
+                    <div>
+                        <h6>数据文件</h6>
+                        <a href="{{ data_instance.data_file.url }}" class="btn btn-outline-primary btn-sm" target="_blank">
+                            <i class="fas fa-download me-1"></i>下载数据文件
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 右侧：关联信息 -->
+        <div class="col-md-4">
+            <!-- 主任务信息 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-layer-group me-2"></i>主任务</h5>
+                </div>
+                <div class="card-body">
+                    <h6>{{ subtask.parent_task.task_number }}</h6>
+                    <p class="text-muted mb-2">{{ subtask.parent_task.task_name }}</p>
+                    <a href="{% url 'tasks:task_detail' subtask.parent_task.id %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye me-1"></i>查看主任务
+                    </a>
+                </div>
+            </div>
+
+            <!-- 快速操作 -->
+            {% if user == subtask.assignee or user.role == 'manager' or user.role == 'admin' %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>快速操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if user.role == 'manager' %}
+                        <button class="btn btn-danger" onclick="deleteSubtask({{ subtask.id }})">
+                            <i class="fas fa-trash me-1"></i>删除子任务
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// 显示加载状态
+function showLoading(button) {
+    // 立即显示加载状态
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>加载中...';
+    button.classList.add('disabled');
+    
+    // 立即跳转，不延迟
+    return true;
+}
+
+// 检查页面加载状态
+function checkPageLoad() {
+    // 检查Bootstrap是否加载成功
+    if (typeof bootstrap === 'undefined') {
+        console.warn('Bootstrap未加载，使用本地回退');
+        // 添加基本的按钮样式回退
+        const buttons = document.querySelectorAll('.btn');
+        buttons.forEach(btn => {
+            btn.style.cursor = 'pointer';
+            btn.style.transition = 'all 0.3s ease';
+        });
+    }
+    
+    // 检查必要的DOM元素是否存在
+    const batchEntryBtn = document.getElementById('batch-data-entry-btn');
+    const viewDataBtn = document.getElementById('view-data-btn');
+    
+    if (!batchEntryBtn) {
+        console.error('批量数据录入按钮未找到');
+    }
+    
+    if (!viewDataBtn) {
+        console.error('查看数据按钮未找到');
+    }
+}
+
+// 增强的删除功能
+function deleteSubtask(subtaskId) {
+    if (confirm('确定要删除此子任务吗？此操作不可撤销！')) {
+        // 显示加载状态
+        const deleteBtn = event.target;
+        const originalText = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>删除中...';
+        deleteBtn.disabled = true;
+        deleteBtn.classList.add('disabled');
+        
+        fetch(`/tasks/subtask/${subtaskId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.href = data.redirect_url;
+            } else {
+                alert('删除失败：' + data.message);
+                // 恢复按钮状态
+                deleteBtn.innerHTML = originalText;
+                deleteBtn.disabled = false;
+                deleteBtn.classList.remove('disabled');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('删除失败，请重试');
+            // 恢复按钮状态
+            deleteBtn.innerHTML = originalText;
+            deleteBtn.disabled = false;
+            deleteBtn.classList.remove('disabled');
+        });
+    }
+}
+
+// 页面加载完成后执行检查
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('子任务详情页面加载完成');
+    
+    // 检查页面加载状态
+    checkPageLoad();
+    
+    // 为所有按钮添加点击反馈
+    const buttons = document.querySelectorAll('.btn');
+    buttons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // 添加点击效果
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                this.style.transform = 'scale(1)';
+            }, 100);
+        });
+    });
+    
+    // 检查网络连接状态
+    if (!navigator.onLine) {
+        alert('网络连接已断开，某些功能可能无法正常使用');
+    }
+    
+    // 监听网络状态变化
+    window.addEventListener('online', function() {
+        console.log('网络已连接');
+    });
+    
+    window.addEventListener('offline', function() {
+        console.log('网络已断开');
+        alert('网络连接已断开，请检查网络设置');
+    });
+});
+
+// 全局错误处理
+window.addEventListener('error', function(e) {
+    console.error('页面错误:', e.error);
+    // 可以在这里添加错误上报逻辑
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('未处理的Promise拒绝:', e.reason);
+    // 可以在这里添加错误上报逻辑
+});
+
+// 处理页面显示事件（包括从bfcache恢复），解决返回时按钮仍显示加载中的问题
+window.addEventListener('pageshow', function(event) {
+    // 重置批量录入按钮
+    const batchEntryBtn = document.getElementById('batch-data-entry-btn');
+    if (batchEntryBtn) {
+        batchEntryBtn.innerHTML = '<i class="fas fa-table me-1"></i>批量数据录入';
+        batchEntryBtn.classList.remove('disabled');
+    }
+    
+    // 重置查看数据按钮
+    const viewDataBtn = document.getElementById('view-data-btn');
+    if (viewDataBtn) {
+        viewDataBtn.innerHTML = '<i class="fas fa-list me-1"></i>查看已录入数据';
+        viewDataBtn.classList.remove('disabled');
+    }
+});
+</script>
+{% endblock %}

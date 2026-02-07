@@ -1,0 +1,42 @@
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS=0;
+
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `password` VARCHAR(128) NOT NULL,
+  `last_login` DATETIME NULL,
+  `is_superuser` TINYINT(1) NOT NULL DEFAULT 0,
+  `username` VARCHAR(150) NOT NULL,
+  `email` VARCHAR(254) NOT NULL,
+  `is_staff` TINYINT(1) NOT NULL DEFAULT 0,
+  `date_joined` DATETIME NOT NULL,
+  `employee_id` VARCHAR(20) NOT NULL,
+  `phone` VARCHAR(20) NOT NULL,
+  `position` VARCHAR(100) NOT NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  `department_id` BIGINT NULL,
+  `role` VARCHAR(20) NOT NULL,
+  `account_status` TINYINT(1) NOT NULL DEFAULT 1,
+  `first_name` VARCHAR(150) NOT NULL,
+  `last_name` VARCHAR(150) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_users_username_unique` (`username`),
+  UNIQUE KEY `idx_users_employee_id_unique` (`employee_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT INTO `users` (`id`,`password`,`last_login`,`is_superuser`,`username`,`email`,`is_staff`,`date_joined`,`employee_id`,`phone`,`position`,`created_at`,`updated_at`,`department_id`,`role`,`account_status`,`first_name`,`last_name`) VALUES
+(1,'pbkdf2_sha256$600000$e1ItVKciFIsgUQLCNKKuFp$J5+qBbAMKIpOWTKqloj4XM3mK3swh/DgvvM6lcPHDzg=','2025-11-12 10:02:29',1,'admin','admin@example.com',1,'2025-11-10 03:16:06','JK001','18300613166','','2025-11-10 03:16:06','2025-11-12 03:57:14',1,'admin',1,'',''),
+(4,'pbkdf2_sha256$600000$mFyzqC9h7aLYJpiXiBBafN$VF4QqYeTS1zF4Ib9RJIkf9mJf5FK+aT3K6KRa44mOms=','2025-12-16 03:16:47',1,'杨明哲','504606628@qq.com',1,'2025-11-10 03:40:39','JK00085','18300613166','','2025-11-10 03:40:39','2025-12-03 02:25:07',1,'manager',1,'',''),
+(5,'pbkdf2_sha256$600000$vEIIz36O63B8rxFherSpzx$D9F2UqFMkmlnQkpmlqRPJSW5hJu+MwroP81XddDyDWw=','2025-11-12 02:36:08',0,'王战胜','',0,'2025-11-10 05:02:22','JK00031','6333','','2025-11-10 05:02:22','2025-11-10 09:35:40',1,'engineer',1,'',''),
+(7,'pbkdf2_sha256$600000$Vh5PYdEwMe22dwFz9qUFCJ$+41ag33RNRdT1nXqyRvkqSVbXgNFn6N/n1ptEISIcL4=','2025-12-04 06:10:08',0,'杨明源','',0,'2025-11-10 09:36:59','JK00345','15978573971','','2025-11-10 09:37:00','2025-11-10 09:37:00',1,'engineer',1,'',''),
+(8,'pbkdf2_sha256$600000$2rf3gkvbAg4qQZB0XEIpHa$jW08+2ejqFV0/0aAkxhCHOp7YUBaIxIDX9QQiihdSMw=','2025-12-04 06:25:03',0,'张帆','',0,'2025-11-10 09:37:58','JK00197','15539180303/6961','','2025-11-10 09:37:58','2025-11-10 09:37:58',1,'engineer',1,'',''),
+(9,'pbkdf2_sha256$600000$kcIBobyC3I9XNW6o2yiTir$pvmkm9QfwCbc/IpnoLZvhFrHKqMsQSHMEYdU6vwHt8w=',NULL,0,'张朝昆','',0,'2025-11-10 09:39:38','JK01301','未知','','2025-11-10 09:39:39','2025-11-10 09:39:39',1,'engineer',1,'',''),
+(10,'pbkdf2_sha256$600000$jCij1zrVH1sPL2mI15qWc7$80h+k/AcGfSUnuaFn2soIrQXANTTGCW6SApUs31S7Bg=',NULL,0,'段来玉','',0,'2025-11-10 09:40:50','JK00930','未知','','2025-11-10 09:40:51','2025-11-10 09:40:51',1,'engineer',1,'',''),
+(11,'pbkdf2_sha256$600000$YVSTlaXzT0HWg3nZkqFGez$E/ExvVvs+CmcpmUTK/gQayckXSWWNCFmK/vPkwk9U9A=',NULL,0,'马保兴','',0,'2025-11-10 09:42:07','JK00143','13569181978','','2025-11-10 09:42:08','2025-11-10 09:42:08',1,'engineer',1,'',''),
+(12,'pbkdf2_sha256$600000$h7Dwfk2ax2s22HSvUwjmi8$oUMHFu3QIYHp4UrzC9ZO/aRQwMB+rdcm+mO7G3X7B9o=','2025-11-12 09:59:09',0,'宋金龙','',0,'2025-11-10 09:44:28','JK00123','6742','','2025-11-10 09:44:28','2025-11-10 09:44:37',1,'engineer',1,'',''),
+(14,'pbkdf2_sha256$600000$aDiIjTB02fzAsZr2ahvy3x$X2yBD4Sl+kNqLmqn6EiB2F4Zt7Ji8xRyJBUzvCbARsU=','2025-11-12 02:49:47',0,'guest','guest@example.com',0,'2025-11-12 02:47:43','GUEST001','13800000000','访客','2025-11-12 02:47:44','2025-11-12 02:47:44',NULL,'guest',1,'',''),
+(16,'pbkdf2_sha256$600000$udiUBkPGgcte7nx2Bxfc5F$/kq5s3NEwKy82qpYe/auM8ye+sIw7bA52KciVOs5Zh0=','2025-11-13 03:55:17',0,'刘冬冬','',0,'2025-11-13 03:09:58','JK00082','6558','研发二部部长','2025-11-13 03:09:58','2025-11-13 03:09:58',2,'guest',1,'',''),
+(17,'pbkdf2_sha256$600000$FMLR6PaSzB91e9eh0lTdoc$rTkWPa5GZNFi43muGjIZ2DgP5LoKS92bD/4hyaKZppg=','2025-12-03 02:29:13',0,'test_user','test@example.com',0,'2025-12-03 02:22:25','TEST001','13800138000','测试工程师','2025-12-03 02:22:25','2025-12-03 02:22:25',NULL,'engineer',1,'',''),
+(18,'!hbsFKdLkKn3mA42anQajn0NKYuKxTv8HREa3w6Ee',NULL,0,'AnonymousUser','',0,'2025-12-03 08:34:04','','','','2025-12-03 08:34:04','2025-12-03 08:34:04',NULL,'engineer',1,'','');
+SET FOREIGN_KEY_CHECKS=1;

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{% block title %}实验室管理系统{% endblock %}</title>
+    
+    <!-- DNS预解析和预连接，加速CDN资源加载 -->
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    
+    {% load static %}
+    <!-- CDN资源（带回退机制） -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"></noscript>
+    
+    <!-- 本地回退资源 -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css'">
+    
+    <!-- Font Awesome 类似处理 -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome.min.css' %}" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'">
+    
+    <!-- Custom CSS -->
+    <style>
+        /* 弹窗组件样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .modal-overlay.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            max-width: 500px;
+            width: 90%;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .modal-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6c757d;
+        }
+        
+        .modal-close:hover {
+            color: #000;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+        }
+        
+        /* 内容包装器 */
+        .content-wrapper {
+            padding-top: calc(var(--header-height) + 20px);
+            padding-bottom: 20px;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        
+        .card-header {
+            border-radius: 10px 10px 0 0 !important;
+        }
+        
+        /* 统计卡片 */
+        .stats-card {
+            border-left: 4px solid transparent;
+        }
+        
+        .stats-card.blue {
+            border-left-color: #0d6efd;
+        }
+        
+        .stats-card.green {
+            border-left-color: #198754;
+        }
+        
+        .stats-card.orange {
+            border-left-color: #fd7e14;
+        }
+        
+        .stats-card.red {
+            border-left-color: #dc3545;
+        }
+        
+        /* 表格样式 */
+        .table th {
+            font-weight: 600;
+        }
+        
+        /* 头像 */
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .avatar-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #6c757d;
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        /* 徽章 */
+        .badge-sm {
+            font-size: 0.75em;
+        }
+        
+        /* 进度条 */
+        .progress-sm {
+            height: 8px;
+        }
+    </style>
+    
+    <!-- Glassmorphism theme CSS -->
+    <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+    <link rel="stylesheet" href="{% static 'css/glass.css' %}">
+    <!-- Sidebar CSS -->
+    <link rel="stylesheet" href="{% static 'css/sidebar-theme.css' %}">
+    <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="glass-theme">
+    <div class="wrapper">
+        <!-- 侧边栏遮罩 (移动端) -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- 侧边栏 -->
+        <nav id="sidebar" class="app-sidebar" role="navigation" aria-label="主导航">
+            <div class="sidebar-header">
+                <a href="{% url 'index' %}" class="brand-link" aria-label="试验室管理系统首页">
+                    <i class="fas fa-flask brand-logo"></i>
+                    <span class="brand-text">试验室管理系统</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-nav">
+                <ul class="nav-list">
+                    {% if request.user.role == 'guest' %}
+                        <li class="nav-item">
+                            <a href="{% url 'tasks:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" aria-label="任务仪表盘">
+                                <i class="fas fa-home nav-icon"></i>
+                                <span class="nav-text">任务仪表盘</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'tasks:task_list' %}" class="nav-link {% if request.resolver_match.app_name == 'tasks' %}active{% endif %}" aria-label="任务管理">
+                                <i class="fas fa-tasks nav-icon"></i>
+                                <span class="nav-text">任务管理</span>
+                            </a>
+                        </li>
+                    {% elif request.user.role == 'engineer' %}
+                        <li class="nav-item">
+                            <a href="{% url 'tasks:dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" aria-label="试验任务仪表盘">
+                                <i class="fas fa-chart-bar nav-icon"></i>
+                                <span class="nav-text">试验任务仪表盘</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'tasks:task_list' %}" class="nav-link {% if request.resolver_match.app_name == 'tasks' %}active{% endif %}" aria-label="任务管理">
+                                <i class="fas fa-tasks nav-icon"></i>
+                                <span class="nav-text">任务管理</span>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a href="{% url 'index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}" aria-label="仪表盘">
+                                <i class="fas fa-home nav-icon"></i>
+                                <span class="nav-text">仪表盘</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'tasks:task_list' %}" class="nav-link {% if request.resolver_match.app_name == 'tasks' %}active{% endif %}" aria-label="任务管理">
+                                <i class="fas fa-tasks nav-icon"></i>
+                                <span class="nav-text">任务管理</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'users:user_list' %}" class="nav-link {% if request.resolver_match.app_name == 'users' and request.resolver_match.url_name != 'department_list' and request.resolver_match.url_name != 'department_create' and request.resolver_match.url_name != 'department_detail' and request.resolver_match.url_name != 'department_update' and request.resolver_match.url_name != 'role_list' and request.resolver_match.url_name != 'role_create' and request.resolver_match.url_name != 'role_detail' and request.resolver_match.url_name != 'role_update' %}active{% endif %}" aria-label="人员管理">
+                                <i class="fas fa-users nav-icon"></i>
+                                <span class="nav-text">人员管理</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'users:department_list' %}" class="nav-link {% if request.resolver_match.url_name == 'department_list' or request.resolver_match.url_name == 'department_create' or request.resolver_match.url_name == 'department_detail' or request.resolver_match.url_name == 'department_update' %}active{% endif %}" aria-label="部门管理">
+                                <i class="fas fa-building nav-icon"></i>
+                                <span class="nav-text">部门管理</span>
+                            </a>
+                        </li>
+                        {% if request.user.role == 'admin' or request.user.role == 'manager' %}
+                            <li class="nav-item">
+                                <a href="{% url 'tasks:test_type_list' %}" class="nav-link {% if request.resolver_match.url_name == 'test_type_list' or request.resolver_match.url_name == 'test_type_create' or request.resolver_match.url_name == 'test_type_detail' or request.resolver_match.url_name == 'test_type_update' %}active{% endif %}" aria-label="试验类型管理">
+                                    <i class="fas fa-vial nav-icon"></i>
+                                    <span class="nav-text">试验类型管理</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                        {% if request.user.role == 'admin' %}
+                            <li class="nav-item">
+                                <a href="{% url 'users:role_list' %}" class="nav-link {% if request.resolver_match.url_name == 'role_list' or request.resolver_match.url_name == 'role_create' or request.resolver_match.url_name == 'role_detail' or request.resolver_match.url_name == 'role_update' %}active{% endif %}" aria-label="角色管理">
+                                    <i class="fas fa-user-tag nav-icon"></i>
+                                    <span class="nav-text">角色管理</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a href="{% url 'equipment:list' %}" class="nav-link {% if request.resolver_match.app_name == 'equipment' %}active{% endif %}" aria-label="设备管理">
+                                <i class="fas fa-microscope nav-icon"></i>
+                                <span class="nav-text">设备管理</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'tools:list' %}" class="nav-link {% if request.resolver_match.app_name == 'tools' %}active{% endif %}" aria-label="工具管理">
+                                <i class="fas fa-tools nav-icon"></i>
+                                <span class="nav-text">工具管理</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'tooling:list' %}" class="nav-link {% if request.resolver_match.app_name == 'tooling' %}active{% endif %}" aria-label="工装管理">
+                                <i class="fas fa-wrench nav-icon"></i>
+                                <span class="nav-text">工装管理</span>
+                            </a>
+                        </li>
+                        {% if request.user.role != 'guest' and request.user.role != 'engineer' %}
+                            <li class="nav-item">
+                                <a href="{% url 'tasks:test_data_list' %}" class="nav-link {% if request.resolver_match.url_name == 'test_data_list' or request.resolver_match.url_name == 'test_data_search' or request.resolver_match.url_name == 'test_data_edit' %}active{% endif %}" aria-label="试验数据管理">
+                                    <i class="fas fa-database nav-icon"></i>
+                                    <span class="nav-text">试验数据管理</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="d-flex align-items-center w-100 justify-content-between">
+                    <button id="themeToggle" class="btn btn-link text-secondary p-0 nav-icon" aria-label="切换主题">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <span class="small text-muted nav-text">v1.0.0</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区域 -->
+        <div class="main-content bg-glass-light" id="mainContent">
+            <!-- 顶部导航栏 -->
+            <nav class="top-navbar navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+                <div class="container-fluid">
+                    <button id="sidebarToggle" class="btn btn-link text-dark me-3" aria-label="切换侧边栏">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="navbar-nav ms-auto">
+                        <div class="dropdown">
+                            <a href="#" class="d-flex align-items-center text-dark text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown">
+                                <div class="avatar avatar-text me-2">{{ request.user.get_full_name|default:request.user.username|first|upper }}</div>
+                                <span>{{ request.user.get_full_name|default:request.user.username }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'users:profile' %}"><i class="fas fa-user me-2"></i>个人资料</a></li>
+                                <li><a class="dropdown-item" href="{% url 'users:edit_profile' %}"><i class="fas fa-cog me-2"></i>设置</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt me-2"></i>退出登录</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- 页面内容 -->
+            <main class="content-wrapper">
+                <div class="container-fluid">
+                    <!-- 警告消息容器（隐藏，由弹窗组件处理） -->
+                    <div class="alert-container" style="display: none;">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                    
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 移除重复资源，仅保留CDN资源 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script>
+        // Bootstrap JS Fallback
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof bootstrap === 'undefined') {
+                console.warn('Bootstrap CDN failed, loading local fallback...');
+                var script = document.createElement('script');
+                script.src = "{% static 'vendor/bootstrap.bundle.min.js' %}";
+                document.body.appendChild(script);
+            }
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+
+    <!-- 弹窗组件 -->
+    <script src="{% static 'js/modal.js' %}" defer></script>
+    <!-- Sidebar JS -->
+    <script src="{% static 'js/sidebar.js' %}" defer></script>
+
+    <script>
+        // 通用JavaScript函数
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            const container = document.querySelector('.alert-container') || document.querySelector('.content-wrapper');
+            container.insertBefore(alertDiv, container.firstChild);
+
+            // 自动消失
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+
+        // 确认删除
+        function confirmDelete(message = '确定要删除吗？') {
+            return confirm(message);
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-CN');
+        }
+
+        // 计算进度百分比
+        function calculateProgress(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const now = new Date();
+
+            if (now < start) return 0;
+            if (now > end) return 100;
+
+            const total = end - start;
+            const elapsed = now - start;
+            return Math.round((elapsed / total) * 100);
+        }
+    </script>
+</body>
+</html>

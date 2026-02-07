@@ -1,0 +1,16 @@
+Django>=4.2
+djangorestframework
+django-cors-headers
+django-guardian
+django-redis
+redis
+celery
+django-celery-beat
+django-celery-results
+mysqlclient
+whitenoise
+crispy-bootstrap4
+django-crispy-forms
+openpyxl
+pandas
+gunicorn

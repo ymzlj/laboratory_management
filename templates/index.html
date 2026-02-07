@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block title %}仪表盘 - 试验室管理系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card stats-card blue">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">总用户数</h5>
+                        <h2 class="mb-0">{{ total_users }}</h2>
+                    </div>
+                    <div class="icon">
+                        <i class="fas fa-users fa-2x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card green">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">总任务数</h5>
+                        <h2 class="mb-0">{{ total_tasks }}</h2>
+                    </div>
+                    <div class="icon">
+                        <i class="fas fa-tasks fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card orange">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">待处理任务</h5>
+                        <h2 class="mb-0">{{ pending_tasks }}</h2>
+                    </div>
+                    <div class="icon">
+                        <i class="fas fa-clock fa-2x text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card red">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">已完成任务</h5>
+                        <h2 class="mb-0">{{ completed_tasks }}</h2>
+                    </div>
+                    <div class="icon">
+                        <i class="fas fa-check-circle fa-2x text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">近期任务</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>任务名称</th>
+                                <th>负责人</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in recent_tasks %}
+                            <tr>
+                                <td>{{ task.name }}</td>
+                                <td>{{ task.assigned_to.get_full_name|default:task.assigned_to.username }}</td>
+                                <td>
+                                    {% if task.status == 'pending' %}
+                                        <span class="badge bg-warning">待处理</span>
+                                    {% elif task.status == 'in_progress' %}
+                                        <span class="badge bg-primary">进行中</span>
+                                    {% elif task.status == 'completed' %}
+                                        <span class="badge bg-success">已完成</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ task.created_at|date:"Y-m-d" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">暂无任务</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">用户任务统计</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for stat in user_task_stats %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>{{ stat.assigned_to__username|default:"未分配" }}</span>
+                        <span class="badge bg-primary rounded-pill">{{ stat.task_count }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center">暂无数据</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .jumbotron {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .border-left-primary {
+        border-left: 0.25rem solid #4e73df !important;
+    }
+
+    .border-left-success {
+        border-left: 0.25rem solid #1cc88a !important;
+    }
+
+    .border-left-info {
+        border-left: 0.25rem solid #36b9cc !important;
+    }
+
+    .border-left-warning {
+        border-left: 0.25rem solid #f6c23e !important;
+    }
+
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -35px;
+        top: 5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #4e73df;
+    }
+
+    .timeline-marker::before {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 15px;
+        width: 2px;
+        height: 30px;
+        background-color: #e3e6f0;
+    }
+
+    .timeline-item:last-child .timeline-marker::before {
+        display: none;
+    }
+
+    .timeline-title {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .timeline-text {
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+    
+    .icon-circle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .stats-card {
+        border-left: 4px solid transparent;
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .stats-card.blue {
+        border-left-color: #0d6efd;
+    }
+    
+    .stats-card.green {
+        border-left-color: #198754;
+    }
+    
+    .stats-card.orange {
+        border-left-color: #fd7e14;
+    }
+    
+    .stats-card.red {
+        border-left-color: #dc3545;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,443 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load task_extras %}
+
+{% block title %}{{ subtask.test_type.name }} - 已录入数据{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <div class="d-flex align-items-center">
+                <h2 class="mb-0"><i class="fas fa-list me-2"></i>{{ subtask.test_type.name }} - 已录入数据</h2>
+                <span class="badge bg-primary ms-3 rounded-pill fs-6">
+                    共 {{ page_obj.paginator.count }} 条
+                </span>
+            </div>
+            <p class="text-muted mb-0 mt-2">子任务：{{ subtask.subtask_number }} - {{ subtask.subtask_name }}</p>
+        </div>
+        <div>
+            <a href="?export=true" class="btn btn-outline-primary me-2">
+                <i class="fas fa-file-export me-1"></i>导出Excel
+            </a>
+            <a href="{% url 'tasks:generic_test_data_entry' subtask.id %}" class="btn btn-success">
+                <i class="fas fa-plus me-1"></i>继续录入数据
+            </a>
+            <a href="{% url 'tasks:subtask_detail' subtask.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>返回子任务
+            </a>
+        </div>
+    </div>
+
+    <!-- 数据列表 -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-table me-2"></i>数据列表</h5>
+        </div>
+        <div class="card-body">
+            {% if data_list %}
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 60px;">序号</th>
+                            <th style="width: 150px;">试验编号</th>
+                            {% for field in fields %}
+                            <th>{{ field.field_name }}</th>
+                            {% endfor %}
+                            <th style="width: 150px;">录入时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in data_list %}
+                        <tr>
+                            <td class="text-center">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                            <td><code>{{ data.test_number }}</code></td>
+                            {% for field in fields %}
+                                {% with field_value=data|get_item:field.field_code %}
+                                <td>
+                                    {% if field_value %}
+                                        {% if field.field_type == 'checkbox' %}
+                                            {% if field_value == 'True' or field_value == True %}
+                                                <i class="fas fa-check-circle text-success"></i> 是
+                                            {% else %}
+                                                <i class="fas fa-times-circle text-danger"></i> 否
+                                            {% endif %}
+                                        {% elif field.field_type == 'file' %}
+                                            {% if field_value|is_list %}
+                                                {% if field_value %}
+                                                    {% with pid=data.test_number|stringformat:"s"|add:"-"|add:field.field_code %}
+                                                    <button type="button" class="btn btn-sm btn-outline-primary view-photos-btn" 
+                                                            data-target="photos-{{ pid }}"
+                                                            onclick="viewPhotos(this.getAttribute('data-target'))">
+                                                        <i class="fas fa-images me-1"></i> 查看 ({{ field_value|length }})
+                                                    </button>
+                                                    <div id="photos-{{ pid }}" class="d-none">
+                                                        {% for p in field_value %}
+                                                            <a href="{{ p|media_url }}" data-name="{{ p|filename }}"></a>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% with jsonid="photos-json-"|add:pid %}
+                                                    {{ field_value|json_script:jsonid }}
+                                                    {% endwith %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <a href="{{ field_value|media_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-download"></i> 下载
+                                                </a>
+                                            {% endif %}
+                                        {% else %}
+                                            {{ field_value }}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                {% endwith %}
+                            {% endfor %}
+                            <td><small>{{ data.created_at }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页控件 -->
+            {% if page_obj.paginator.num_pages > 1 %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1" aria-label="First">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;&laquo;</span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;</span>
+                    </li>
+                    {% endif %}
+
+                    {% for i in page_obj.paginator.page_range %}
+                        {% if page_obj.number == i %}
+                        <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                        {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
+                            <span aria-hidden="true">&raquo;&raquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;</span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;&raquo;</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <div class="text-center text-muted small mt-2">
+                显示第 {{ page_obj.start_index }} 到 {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无数据</h5>
+                <p class="text-muted">点击"继续录入数据"按钮开始录入</p>
+                <a href="{% url 'tasks:generic_test_data_entry' subtask.id %}" class="btn btn-primary mt-3">
+                    <i class="fas fa-plus me-1"></i>开始录入
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 照片查看模态框 -->
+<div class="modal fade" id="photoViewerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-images me-2"></i>照片查看</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="row g-0" style="height: 80vh;">
+                    <!-- 主图区域 -->
+                    <div class="col-lg-9 bg-dark d-flex align-items-center justify-content-center position-relative" style="height: 100%;">
+                        <img id="mainPhoto" src="" alt="Main Photo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        
+                        <!-- 切换按钮 -->
+                        <button class="btn btn-dark position-absolute start-0 ms-3 rounded-circle" onclick="prevPhoto()" style="width: 40px; height: 40px;">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button class="btn btn-dark position-absolute end-0 me-3 rounded-circle" onclick="nextPhoto()" style="width: 40px; height: 40px;">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                        
+                        <div class="position-absolute bottom-0 start-0 w-100 p-2 bg-dark bg-opacity-75 text-white text-center">
+                            <span id="photoCounter">1 / 1</span>
+                            <span id="photoName" class="ms-3"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- 缩略图侧边栏 -->
+                    <div class="col-lg-3 bg-light border-start" style="height: 100%; overflow-y: auto;">
+                        <div class="p-3">
+                            <h6 class="border-bottom pb-2 mb-3">照片列表</h6>
+                            <div class="row g-2" id="thumbnailGrid">
+                                <!-- 缩略图将通过JS动态插入 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 照片查看相关逻辑
+let currentPhotos = [];
+let currentPhotoIndex = 0;
+const modalEl = document.getElementById('photoViewerModal');
+let modal = null;
+
+function openModal() {
+    if (window.bootstrap && window.bootstrap.Modal) {
+        if (!modal) {
+            modal = new window.bootstrap.Modal(modalEl);
+        }
+        modal.show();
+        return;
+    }
+    // Fallback: 手动展示模态框并创建遮罩
+    modalEl.classList.add('show');
+    modalEl.style.display = 'block';
+    document.body.classList.add('modal-open');
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show';
+    backdrop.id = 'photoViewerBackdrop';
+    document.body.appendChild(backdrop);
+}
+
+function closeModal() {
+    if (window.bootstrap && window.bootstrap.Modal && modal) {
+        modal.hide();
+        return;
+    }
+    // Fallback: 手动隐藏
+    modalEl.classList.remove('show');
+    modalEl.style.display = 'none';
+    document.body.classList.remove('modal-open');
+    const backdrop = document.getElementById('photoViewerBackdrop') || document.querySelector('.modal-backdrop');
+    if (backdrop) backdrop.remove();
+}
+
+// 绑定关闭按钮用于fallback关闭
+const closeBtn = modalEl.querySelector('.btn-close');
+if (closeBtn) {
+    closeBtn.addEventListener('click', function() {
+        closeModal();
+    });
+}
+
+function viewPhotos(id) {
+    try {
+        // 通过隐藏容器中的链接收集图片数据，避免任何JSON解析问题
+        const container = document.getElementById(id);
+        if (!container) {
+            console.error('Photo links container not found for id:', id);
+            alert('未找到照片数据容器');
+            return;
+        }
+        const anchors = Array.from(container.querySelectorAll('a[href]'));
+        if (anchors.length) {
+            currentPhotos = anchors.map(a => {
+                const url = a.getAttribute('href');
+                const name = a.getAttribute('data-name') || (url ? url.split(/[\\/]/).pop() : '');
+                return { url, name };
+            });
+        } else {
+            // Fallback: 尝试从 json_script 中读取
+            const jsonId = 'photos-json-' + id.replace(/^photos-/, '');
+            const scriptEl = document.getElementById(jsonId);
+            if (!scriptEl) {
+                console.warn('No photo links or json_script found for:', id);
+                alert('未找到可用的照片数据');
+                return;
+            }
+            let raw = [];
+            try {
+                raw = JSON.parse(scriptEl.textContent);
+            } catch (e) {
+                console.error('JSON parse failed:', e, scriptEl.textContent);
+                alert('照片数据解析失败（JSON）');
+                return;
+            }
+            if (!raw || !raw.length) {
+                alert('没有可显示的照片');
+                return;
+            }
+            // 支持两种结构：字符串路径或对象 {url,name}
+            currentPhotos = raw.map(item => {
+                if (typeof item === 'string') {
+                    const url = item.startsWith('http') || item.startsWith('/') ? item : ('/media/' + item.replace(/\\/g, '/'));
+                    const name = item.split(/[\\/]/).pop();
+                    return { url, name };
+                } else {
+                    const u = item.url || '';
+                    const url = (u.startsWith('http') || u.startsWith('/')) ? u : ('/media/' + u.replace(/\\/g, '/'));
+                    const name = item.name || (url ? url.split(/[\\/]/).pop() : '');
+                    return { url, name };
+                }
+            });
+        }
+
+        currentPhotoIndex = 0;
+        renderPhotos();
+        openModal();
+    } catch (e) {
+        console.error('Error parsing photo data:', e);
+        alert('照片数据解析失败，请查看控制台日志');
+    }
+}
+
+function renderPhotos() {
+    const mainImg = document.getElementById('mainPhoto');
+    const counter = document.getElementById('photoCounter');
+    const nameLabel = document.getElementById('photoName');
+    const grid = document.getElementById('thumbnailGrid');
+    
+    // 更新主图
+    const current = currentPhotos[currentPhotoIndex];
+    mainImg.src = current.url;
+    counter.textContent = `${currentPhotoIndex + 1} / ${currentPhotos.length}`;
+    nameLabel.textContent = current.name;
+    
+    // 更新缩略图网格
+    grid.innerHTML = '';
+    currentPhotos.forEach((photo, index) => {
+        const col = document.createElement('div');
+        col.className = 'col-6';
+        
+        const card = document.createElement('div');
+        card.className = `card cursor-pointer ${index === currentPhotoIndex ? 'border-primary border-2' : ''}`;
+        card.onclick = () => {
+            currentPhotoIndex = index;
+            renderPhotos();
+        };
+        
+        const img = document.createElement('img');
+        img.src = photo.url;
+        img.className = 'card-img-top';
+        img.style.height = '100px';
+        img.style.objectFit = 'cover';
+        
+        const body = document.createElement('div');
+        body.className = 'card-body p-1 text-center';
+        const small = document.createElement('small');
+        small.className = 'd-block text-truncate';
+        small.style.maxWidth = '100%';
+        small.textContent = photo.name;
+        
+        body.appendChild(small);
+        card.appendChild(img);
+        card.appendChild(body);
+        col.appendChild(card);
+        grid.appendChild(col);
+    });
+}
+
+function prevPhoto() {
+    if (currentPhotos.length <= 1) return;
+    currentPhotoIndex = (currentPhotoIndex - 1 + currentPhotos.length) % currentPhotos.length;
+    renderPhotos();
+}
+
+function nextPhoto() {
+    if (currentPhotos.length <= 1) return;
+    currentPhotoIndex = (currentPhotoIndex + 1) % currentPhotos.length;
+    renderPhotos();
+}
+
+// 键盘导航
+document.addEventListener('keydown', function(e) {
+    if (!modalEl.classList.contains('show')) return;
+    
+    if (e.key === 'ArrowLeft') {
+        prevPhoto();
+    } else if (e.key === 'ArrowRight') {
+        nextPhoto();
+    }
+});
+
+// 委托绑定“查看”按钮点击事件，确保任何情况下都能触发
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest && e.target.closest('.view-photos-btn');
+    if (btn) {
+        const targetId = btn.getAttribute('data-target');
+        if (!targetId) {
+            console.error('view-photos-btn missing data-target');
+            return;
+        }
+        try {
+            viewPhotos(targetId);
+        } catch (err) {
+            console.error('viewPhotos failed:', err);
+            alert('打开照片查看器失败，请查看控制台日志');
+        }
+    }
+});
+
+// 删除数据
+function deleteData(dataId, testNumber) {
+    if (confirm(`确定要删除试验数据 "${testNumber}" 吗？`)) {
+        fetch(`/tasks/generic-data/${dataId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            alert('删除失败：' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

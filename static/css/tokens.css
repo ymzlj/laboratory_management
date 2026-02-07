@@ -1,0 +1,57 @@
+/* Glassmorphism Theme Tokens - production ready */
+:root {
+  /* Light theme */
+  --glass-bg: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-blur: 16px;
+  --glass-radius: 16px;
+  --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-strong: 0 12px 32px rgba(15, 23, 42, 0.18);
+
+  --text-primary: #0F172A; /* slate-900 */
+  --text-muted: #475569;   /* slate-600 */
+  --border-color: #E5E7EB; /* gray-200 */
+
+  --bg-grad-1: #ECF1F9;
+  --bg-grad-2: #F7FAFF;
+  --bg-grad-3: #F8FBFF;
+  --bg-grad-4: #F2F5FA;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark theme */
+    --glass-bg: rgba(17, 25, 40, 0.45);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    --glass-blur: 16px;
+    --glass-radius: 16px;
+    --shadow-soft: 0 10px 28px rgba(2, 6, 23, 0.55);
+    --shadow-strong: 0 14px 36px rgba(2, 6, 23, 0.6);
+
+    --text-primary: #EAF0FF;
+    --text-muted: #BAC7E8;
+    --border-color: #2B3240;
+
+    --bg-grad-1: #0B1220;
+    --bg-grad-2: #121826;
+    --bg-grad-3: #0D1424;
+    --bg-grad-4: #0A0F1A;
+  }
+}
+
+/* Background gradient containers */
+.glass-theme .bg-glass-light {
+  background:
+    radial-gradient(1200px 600px at 10% 10%, var(--bg-grad-1) 0%, var(--bg-grad-2) 60%),
+    linear-gradient(180deg, var(--bg-grad-3) 0%, var(--bg-grad-4) 100%);
+}
+.glass-theme .bg-glass-dark {
+  background:
+    radial-gradient(1200px 600px at 10% 10%, var(--bg-grad-1) 0%, var(--bg-grad-2) 60%),
+    linear-gradient(180deg, var(--bg-grad-3) 0%, var(--bg-grad-4) 100%);
+}
+
+/* Responsive tune */
+@media (max-width: 1024px) { :root { --glass-blur: 12px; } }
+@media (max-width: 640px)  { :root { --glass-blur: 8px; } }
+

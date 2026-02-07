@@ -1,0 +1,423 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - 试验室管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+    }
+    
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-section h5 {
+        color: #495057;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .required-field label::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .btn-group-custom {
+        gap: 0.5rem;
+    }
+    
+    .alert-validation {
+        border-left: 4px solid #dc3545;
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+    }
+    
+    .equipment-info {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .equipment-info h6 {
+        color: #1976d2;
+        margin-bottom: 0.5rem;
+    }
+    
+    .equipment-info .info-item {
+        margin-bottom: 0.25rem;
+    }
+    
+    .equipment-info .info-label {
+        font-weight: 600;
+        color: #424242;
+    }
+    
+    .equipment-info .info-value {
+        color: #616161;
+    }
+    
+    .status-badge {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .status-in-use {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .status-maintenance {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .datetime-group {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .datetime-group .form-control {
+        flex: 1;
+    }
+    
+    .current-time-btn {
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">{{ title }}</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:index' %}">设备管理</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:usage_record_list' %}">使用记录</a></li>
+                    {% if action == 'edit' %}
+                        <li class="breadcrumb-item"><a href="{% url 'equipment:usage_record_detail' usage_record.pk %}">记录详情</a></li>
+                    {% endif %}
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 表单验证错误 -->
+    {% if form.non_field_errors %}
+        <div class="alert alert-validation alert-dismissible fade show" role="alert">
+            <h6 class="alert-heading">
+                <i class="fas fa-exclamation-triangle"></i> 表单验证错误
+            </h6>
+            {% for error in form.non_field_errors %}
+                <p class="mb-0">{{ error }}</p>
+            {% endfor %}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endif %}
+
+    <!-- 使用记录表单 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card form-card">
+                <div class="card-body">
+                    <form method="post" id="usageRecordForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- 设备信息 -->
+                        {% if selected_equipment %}
+                        <div class="equipment-info">
+                            <h6><i class="fas fa-desktop"></i> 选中设备信息</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <span class="info-label">设备名称：</span>
+                                        <span class="info-value">{{ selected_equipment.name }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">设备编号：</span>
+                                        <span class="info-value">{{ selected_equipment.equipment_id }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <span class="info-label">型号：</span>
+                                        <span class="info-value">{{ selected_equipment.model }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">当前状态：</span>
+                                        <span class="status-badge status-{{ selected_equipment.status }}">
+                                            {% if selected_equipment.status == 'available' %}
+                                                <i class="fas fa-check-circle"></i> 可用
+                                            {% elif selected_equipment.status == 'in_use' %}
+                                                <i class="fas fa-play-circle"></i> 使用中
+                                            {% elif selected_equipment.status == 'maintenance' %}
+                                                <i class="fas fa-wrench"></i> 维护中
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- 基本信息 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-info-circle"></i> 基本信息</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.equipment.label_tag }}
+                                    {{ form.equipment }}
+                                    {% if form.equipment.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.equipment.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">选择要使用的设备</div>
+                                </div>
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.user.label_tag }}
+                                    {{ form.user }}
+                                    {% if form.user.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.user.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ form.task.label_tag }}
+                                    {{ form.task }}
+                                    {% if form.task.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.task.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">可选择关联的试验任务</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 使用时间 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-clock"></i> 使用时间</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.start_time.label_tag }}
+                                    <div class="datetime-group">
+                                        {{ form.start_time }}
+                                        <button type="button" class="btn btn-outline-secondary current-time-btn" 
+                                                onclick="setCurrentTime('start_time')">
+                                            <i class="fas fa-clock"></i> 当前时间
+                                        </button>
+                                    </div>
+                                    {% if form.start_time.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.start_time.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.end_time.label_tag }}
+                                    <div class="datetime-group">
+                                        {{ form.end_time }}
+                                        <button type="button" class="btn btn-outline-secondary current-time-btn" 
+                                                onclick="setCurrentTime('end_time')">
+                                            <i class="fas fa-clock"></i> 当前时间
+                                        </button>
+                                    </div>
+                                    {% if form.end_time.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.end_time.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">留空表示设备仍在使用中</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 使用详情 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-clipboard-list"></i> 使用详情</h5>
+                            <div class="row">
+                                <div class="col-12 mb-3 required-field">
+                                    {{ form.purpose.label_tag }}
+                                    {{ form.purpose }}
+                                    {% if form.purpose.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.purpose.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">详细说明设备的使用目的和用途</div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    {{ form.notes.label_tag }}
+                                    {{ form.notes }}
+                                    {% if form.notes.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.notes.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">记录使用过程中的注意事项、异常情况等</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 使用后状态 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-check-circle"></i> 使用后状态</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ form.equipment_status_after.label_tag }}
+                                    {{ form.equipment_status_after }}
+                                    {% if form.equipment_status_after.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.equipment_status_after.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">记录使用后设备的状态</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div class="d-flex justify-content-between">
+                            <div class="btn-group-custom d-flex">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> 保存
+                                </button>
+                                <a href="{% if action == 'edit' %}{% url 'equipment:usage_record_detail' usage_record.pk %}{% else %}{% url 'equipment:usage_record_list' %}{% endif %}" 
+                                   class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> 取消
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 表单验证
+    $('#usageRecordForm').on('submit', function(e) {
+        let isValid = true;
+        
+        // 清除之前的验证状态
+        $('.form-control, .form-select').removeClass('is-invalid');
+        
+        // 验证必填字段
+        $('input[required], select[required], textarea[required]').each(function() {
+            if (!$(this).val().trim()) {
+                $(this).addClass('is-invalid');
+                isValid = false;
+            }
+        });
+        
+        // 验证时间逻辑
+        const startTime = $('#id_start_time').val();
+        const endTime = $('#id_end_time').val();
+        
+        if (startTime && endTime) {
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            
+            if (start >= end) {
+                $('#id_end_time').addClass('is-invalid');
+                alert('结束时间必须晚于开始时间');
+                isValid = false;
+            }
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            $('html, body').animate({
+                scrollTop: $('.is-invalid').first().offset().top - 100
+            }, 500);
+        }
+    });
+    
+    // 设备选择变化时更新设备信息
+    $('#id_equipment').on('change', function() {
+        const equipmentId = $(this).val();
+        if (equipmentId) {
+            // 这里可以通过AJAX获取设备详细信息并更新显示
+            // 暂时简化处理
+        }
+    });
+    
+    // 实时验证时间
+    $('#id_start_time, #id_end_time').on('change', function() {
+        const startTime = $('#id_start_time').val();
+        const endTime = $('#id_end_time').val();
+        
+        if (startTime && endTime) {
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            
+            if (start >= end) {
+                $('#id_end_time').addClass('is-invalid');
+            } else {
+                $('#id_end_time').removeClass('is-invalid');
+            }
+        }
+    });
+    
+    // 设置默认开始时间为当前时间
+    if (!$('#id_start_time').val()) {
+        setCurrentTime('start_time');
+    }
+});
+
+function setCurrentTime(fieldName) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    const datetimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
+    $(`#id_${fieldName}`).val(datetimeString);
+    
+    // 触发change事件进行验证
+    $(`#id_${fieldName}`).trigger('change');
+}
+</script>
+{% endblock %}

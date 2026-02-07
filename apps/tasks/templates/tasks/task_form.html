@@ -1,0 +1,405 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #007bff;
+    }
+    .form-section h5 {
+        color: #007bff;
+        margin-bottom: 1rem;
+    }
+    .required-field {
+        color: #dc3545;
+    }
+    .file-upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.3s;
+    }
+    .file-upload-area:hover {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+    }
+    .file-upload-area.dragover {
+        border-color: #007bff;
+        background-color: #e3f2fd;
+    }
+    .form-help {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    .preview-area {
+        max-height: 200px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        border-radius: 5px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-plus-circle me-2"></i>{{ title }}</h2>
+        <a href="{% url 'tasks:task_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回列表
+        </a>
+    </div>
+
+    <!-- 表单 -->
+    <form method="post" enctype="multipart/form-data" id="taskForm">
+        {% csrf_token %}
+        
+        <!-- 基本信息 -->
+        <div class="form-section">
+            <h5><i class="fas fa-info-circle me-2"></i>基本信息</h5>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label for="{{ form.task_name.id_for_label }}" class="form-label">
+                            {{ form.task_name.label }} <span class="required-field">*</span>
+                        </label>
+                        {{ form.task_name }}
+                        {% if form.task_name.errors %}
+                            <div class="text-danger small">{{ form.task_name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 产品信息 -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.product_name.id_for_label }}" class="form-label">
+                            {{ form.product_name.label }}
+                        </label>
+                        {{ form.product_name }}
+                        {% if form.product_name.errors %}
+                            <div class="text-danger small">{{ form.product_name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.product_model.id_for_label }}" class="form-label">
+                            {{ form.product_model.label }}
+                        </label>
+                        {{ form.product_model }}
+                        {% if form.product_model.errors %}
+                            <div class="text-danger small">{{ form.product_model.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-help">只能包含字母、数字和短横线</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.test_type.id_for_label }}" class="form-label">
+                            {{ form.test_type.label }} <span class="required-field">*</span>
+                        </label>
+                        {{ form.test_type }}
+                        {% if form.test_type.errors %}
+                            <div class="text-danger small">{{ form.test_type.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.priority.id_for_label }}" class="form-label">
+                            {{ form.priority.label }} <span class="required-field">*</span>
+                        </label>
+                        {{ form.priority }}
+                        {% if form.priority.errors %}
+                            <div class="text-danger small">{{ form.priority.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 状态提示信息 -->
+            <div class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>任务状态：</strong>任务创建后将自动设置为“待分配”状态，由试验室主管分配负责人后开始执行。
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.description.id_for_label }}" class="form-label">
+                    {{ form.description.label }}
+                </label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <div class="text-danger small">{{ form.description.errors.0 }}</div>
+                {% endif %}
+                <div class="form-help">详细描述试验任务的目标和要求</div>
+            </div>
+        </div>
+
+        <!-- 任务来源信息 -->
+        <div class="form-section">
+            <h5><i class="fas fa-user-circle me-2"></i>任务来源信息</h5>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.requester_name.id_for_label }}" class="form-label">
+                            {{ form.requester_name.label }}
+                        </label>
+                        {{ form.requester_name }}
+                        {% if form.requester_name.errors %}
+                            <div class="text-danger small">{{ form.requester_name.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-help">申请人的真实姓名</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.requester_phone.id_for_label }}" class="form-label">
+                            {{ form.requester_phone.label }}
+                        </label>
+                        {{ form.requester_phone }}
+                        {% if form.requester_phone.errors %}
+                            <div class="text-danger small">{{ form.requester_phone.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-help">申请人的联系电话</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.requester_department.id_for_label }}" class="form-label">
+                            {{ form.requester_department.label }}
+                        </label>
+                        {{ form.requester_department }}
+                        {% if form.requester_department.errors %}
+                            <div class="text-danger small">{{ form.requester_department.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-help">申请人所在部门</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 时间安排 -->
+        <div class="form-section">
+            <h5><i class="fas fa-calendar-alt me-2"></i>时间安排</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.start_date.id_for_label }}" class="form-label">
+                            {{ form.start_date.label }} <span class="required-field">*</span>
+                        </label>
+                        {{ form.start_date }}
+                        {% if form.start_date.errors %}
+                            <div class="text-danger small">{{ form.start_date.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.end_date.id_for_label }}" class="form-label">
+                            {{ form.end_date.label }} <span class="required-field">*</span>
+                        </label>
+                        {{ form.end_date }}
+                        {% if form.end_date.errors %}
+                            <div class="text-danger small">{{ form.end_date.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 试验大纲 -->
+        <div class="form-section">
+            <h5><i class="fas fa-file-alt me-2"></i>试验大纲</h5>
+            <div class="mb-3">
+                <label for="{{ form.test_outline_file.id_for_label }}" class="form-label">
+                    {{ form.test_outline_file.label }}
+                </label>
+                <div class="file-upload-area" id="outlineUploadArea">
+                    {{ form.test_outline_file }}
+                    <div class="mt-2">
+                        <i class="fas fa-cloud-upload-alt fa-2x text-muted"></i>
+                        <p class="mt-2 mb-0">点击选择文件或拖拽文件到此处</p>
+                        <small class="text-muted">{{ form.test_outline_file.help_text }}</small>
+                    </div>
+                </div>
+                {% if form.test_outline_file.errors %}
+                    <div class="text-danger small">{{ form.test_outline_file.errors.0 }}</div>
+                {% endif %}
+                {% if task and task.test_outline_file %}
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            当前文件：<a href="{{ task.test_outline_file.url }}" target="_blank">{{ task.test_outline_file.name }}</a>
+                        </small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 表单验证错误 -->
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+                <div>{{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- 提交按钮 -->
+        <div class="d-flex justify-content-end gap-2 mb-4">
+            <a href="{% url 'tasks:task_list' %}" class="btn btn-secondary">
+                <i class="fas fa-times me-1"></i>取消
+            </a>
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                <i class="fas fa-save me-1"></i>
+                {% if task %}更新任务{% else %}创建任务{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 文件拖拽上传功能
+    setupFileUpload('outlineUploadArea', '{{ form.test_outline_file.id_for_label }}');
+    
+    // 表单验证
+    document.getElementById('taskForm').addEventListener('submit', function(e) {
+        if (!validateForm()) {
+            e.preventDefault();
+        }
+    });
+    
+    // 自动保存草稿（可选功能）
+    // setupAutoSave();
+});
+
+function setupFileUpload(areaId, inputId) {
+    const area = document.getElementById(areaId);
+    const input = document.getElementById(inputId);
+    
+    if (!area || !input) return;
+    
+    // 点击区域触发文件选择
+    area.addEventListener('click', function(e) {
+        if (e.target === input) return;
+        input.click();
+    });
+    
+    // 文件选择后显示文件名
+    input.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            const fileName = this.files[0].name;
+            const fileInfo = area.querySelector('.file-info') || document.createElement('div');
+            fileInfo.className = 'file-info mt-2 text-success';
+            fileInfo.innerHTML = `<i class="fas fa-file me-1"></i>已选择：${fileName}`;
+            
+            if (!area.querySelector('.file-info')) {
+                area.appendChild(fileInfo);
+            }
+        }
+    });
+    
+    // 拖拽功能
+    area.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        area.classList.add('dragover');
+    });
+    
+    area.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        area.classList.remove('dragover');
+    });
+    
+    area.addEventListener('drop', function(e) {
+        e.preventDefault();
+        area.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            input.files = files;
+            input.dispatchEvent(new Event('change'));
+        }
+    });
+}
+
+function validateForm() {
+    let isValid = true;
+    const requiredFields = ['task_name', 'priority', 'start_date', 'end_date'];
+    
+    requiredFields.forEach(fieldName => {
+        const field = document.querySelector(`[name="${fieldName}"]`);
+        if (field && !field.value.trim()) {
+            field.classList.add('is-invalid');
+            isValid = false;
+        } else if (field) {
+            field.classList.remove('is-invalid');
+        }
+    });
+
+    // 验证产品型号格式
+    const productModel = document.querySelector('[name="product_model"]');
+    if (productModel && productModel.value.trim()) {
+        const modelRegex = /^[a-zA-Z0-9-]+$/;
+        if (!modelRegex.test(productModel.value.trim())) {
+            productModel.classList.add('is-invalid');
+            alert('产品型号只能包含字母、数字和短横线！');
+            isValid = false;
+        }
+    }
+    
+    // 验证日期
+    const startDate = document.querySelector('[name="start_date"]').value;
+    const endDate = document.querySelector('[name="end_date"]').value;
+    
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+        alert('开始日期不能晚于结束日期！');
+        isValid = false;
+    }
+    
+    return isValid;
+}
+
+// 自动保存草稿功能（可选）
+function setupAutoSave() {
+    const form = document.getElementById('taskForm');
+    const inputs = form.querySelectorAll('input, textarea, select');
+    
+    inputs.forEach(input => {
+        input.addEventListener('input', debounce(function() {
+            // 这里可以实现自动保存草稿的逻辑
+            console.log('Auto saving...');
+        }, 2000));
+    });
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+</script>
+{% endblock %}

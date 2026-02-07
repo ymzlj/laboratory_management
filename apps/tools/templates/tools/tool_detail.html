@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ tool.name }} - 工具详情{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        font-size: 0.9rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .status-available { background-color: #d4edda; color: #155724; }
+    .status-borrowed { background-color: #cce5ff; color: #004085; }
+    .status-maintenance { background-color: #fff3cd; color: #856404; }
+    .status-lost { background-color: #f8d7da; color: #721c24; }
+    .status-retired { background-color: #e2e3e5; color: #383d41; }
+
+    .info-label {
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+
+    .detail-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 1.5rem;
+    }
+    
+    .detail-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 1rem 1.5rem;
+    }
+    
+    .detail-card .card-body {
+        padding: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 头部导航和操作 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tools:list' %}">工具管理</a></li>
+                    <li class="breadcrumb-item active">{{ tool.name }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                {{ tool.name }}
+                <span class="status-badge status-{{ tool.status }} ms-2 align-middle">
+                    {{ tool.get_status_display }}
+                </span>
+            </h1>
+        </div>
+        <div>
+            <a href="{% url 'tools:edit' tool.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit me-1"></i> 编辑
+            </a>
+            <button type="button" class="btn btn-outline-danger ms-2" onclick="deleteTool()">
+                <i class="fas fa-trash me-1"></i> 删除
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：主要信息 -->
+        <div class="col-lg-8">
+            <!-- 基本信息 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-label">工具编号</div>
+                            <div class="info-value">{{ tool.tool_id }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">工具名称</div>
+                            <div class="info-value">{{ tool.name }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">工具类型</div>
+                            <div class="info-value">{{ tool.type }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">规格型号</div>
+                            <div class="info-value">{{ tool.model }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">制造商</div>
+                            <div class="info-value">{{ tool.manufacturer }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">存放位置</div>
+                            <div class="info-value">{{ tool.location }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">负责人</div>
+                            <div class="info-value">
+                                {% if tool.responsible_person %}
+                                    {{ tool.responsible_person.get_full_name }}
+                                {% else %}
+                                    <span class="text-muted">未分配</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 技术参数 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>技术参数</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-label">材质</div>
+                            <div class="info-value">{{ tool.material|default:"--" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">尺寸规格</div>
+                            <div class="info-value">{{ tool.dimensions|default:"--" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">重量</div>
+                            <div class="info-value">{% if tool.weight %}{{ tool.weight }} kg{% else %}--{% endif %}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">精度</div>
+                            <div class="info-value">{{ tool.accuracy|default:"--" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">测量范围</div>
+                            <div class="info-value">{{ tool.measurement_range|default:"--" }}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="info-label">技术规格说明</div>
+                            <div class="info-value">{{ tool.specifications|linebreaks|default:"暂无说明" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 备注信息 -->
+            {% if tool.remarks %}
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-sticky-note me-2"></i>备注信息</h5>
+                </div>
+                <div class="card-body">
+                    {{ tool.remarks|linebreaks }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 右侧：采购与校准 -->
+        <div class="col-lg-4">
+            <!-- 采购信息 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>采购信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="info-label">采购日期</div>
+                    <div class="info-value">{{ tool.purchase_date|date:"Y-m-d"|default:"--" }}</div>
+                    
+                    <div class="info-label">采购价格</div>
+                    <div class="info-value">{% if tool.purchase_price %}¥{{ tool.purchase_price }}{% else %}--{% endif %}</div>
+                </div>
+            </div>
+
+            <!-- 校准信息 -->
+            <div class="card detail-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-balance-scale me-2"></i>校准信息</h5>
+                    {% if tool.is_calibration_due %}
+                        <span class="badge bg-danger">需校准</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="info-label">上次校准日期</div>
+                    <div class="info-value">{{ tool.last_calibration_date|date:"Y-m-d"|default:"从未校准" }}</div>
+                    
+                    <div class="info-label">下次校准日期</div>
+                    <div class="info-value">
+                        {{ tool.next_calibration_date|date:"Y-m-d"|default:"--" }}
+                        {% if tool.is_calibration_due %}
+                            <small class="text-danger ms-2"><i class="fas fa-exclamation-circle"></i> 已过期</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="info-label">校准间隔</div>
+                    <div class="info-value">{{ tool.calibration_interval }} 天</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除工具 <strong id="toolName">{{ tool.name }}</strong> 吗？</p>
+                <p class="text-danger">此操作不可撤销！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="post" action="{% url 'tools:delete' tool.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteTool() {
+    $('#deleteModal').modal('show');
+}
+</script>
+{% endblock %}

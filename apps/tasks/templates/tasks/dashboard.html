@@ -1,0 +1,462 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}任务仪表板{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: transform 0.3s;
+    }
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    .stats-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+    }
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .recent-task-item {
+        border-left: 4px solid #dee2e6;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: #f8f9fa;
+        border-radius: 0 10px 10px 0;
+        transition: all 0.3s;
+    }
+    .recent-task-item:hover {
+        background: #e9ecef;
+        border-left-color: #007bff;
+    }
+    .priority-high { border-left-color: #dc3545 !important; }
+    .priority-medium { border-left-color: #ffc107 !important; }
+    .priority-low { border-left-color: #28a745 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-chart-bar me-2"></i>任务仪表板</h2>
+        <div>
+            {% if user.role != 'engineer' %}
+            <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>新建任务
+            </a>
+            {% endif %}
+            <a href="{% url 'tasks:task_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-list me-1"></i>任务列表
+            </a>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <div class="stats-icon bg-primary mx-auto mb-3">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <h3 class="stats-number text-primary">{{ total_tasks }}</h3>
+                    <p class="text-muted mb-0">总任务数</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <div class="stats-icon bg-warning mx-auto mb-3">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3 class="stats-number text-warning">{{ pending_tasks }}</h3>
+                    <p class="text-muted mb-0">待处理</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <div class="stats-icon bg-info mx-auto mb-3">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <h3 class="stats-number text-info">{{ in_progress_tasks }}</h3>
+                    <p class="text-muted mb-0">进行中</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card">
+                <div class="card-body text-center">
+                    <div class="stats-icon bg-success mx-auto mb-3">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <h3 class="stats-number text-success">{{ completed_tasks }}</h3>
+                    <p class="text-muted mb-0">已完成</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 快速操作 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>快速操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if user.role != 'engineer' %}
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'tasks:task_create' %}" class="btn btn-primary w-100">
+                                <i class="fas fa-plus me-1"></i>新建任务
+                            </a>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'tasks:my_tasks' %}" class="btn btn-info w-100">
+                                <i class="fas fa-user me-1"></i>我的任务
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'tasks:task_list' %}?status=pending" class="btn btn-warning w-100">
+                                <i class="fas fa-clock me-1"></i>待处理任务
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'tasks:task_list' %}?status=overdue" class="btn btn-danger w-100">
+                                <i class="fas fa-exclamation-triangle me-1"></i>逾期任务
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 逾期任务警告 -->
+    {% if overdue_tasks > 0 %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>注意：</strong>有 <strong>{{ overdue_tasks }}</strong> 个任务已逾期，请及时处理！
+                <a href="{% url 'tasks:task_list' %}?status=overdue" class="btn btn-sm btn-outline-danger ms-2">
+                    查看逾期任务
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- 左侧：图表区域 -->
+        <div class="col-md-8">
+            <!-- 任务类型分布 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>任务类型分布</h5>
+                </div>
+                <div class="card-body">
+                    {% if task_by_type %}
+                    <div class="chart-container">
+                        <canvas id="typeChart"></canvas>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">暂无数据</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 优先级分布 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>优先级分布</h5>
+                </div>
+                <div class="card-body">
+                    {% if task_by_priority %}
+                    <div class="chart-container">
+                        <canvas id="priorityChart"></canvas>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">暂无数据</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：最近任务 -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>最近任务</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_tasks %}
+                        {% for task in recent_tasks %}
+                        <a href="{% url 'tasks:task_detail' task.id %}" class="text-decoration-none">
+                        <div class="recent-task-item 
+                            {% if task.priority.code == 'high' %}priority-high
+                            {% elif task.priority.code == 'medium' %}priority-medium
+                            {% else %}priority-low{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0 text-dark">
+                                    {{ task.task_name|truncatechars:25 }}
+                                </h6>
+                                <span class="badge 
+                                    {% if task.status.code == 'pending' %}bg-warning
+                                    {% elif task.status.code == 'in_progress' %}bg-primary
+                                    {% elif task.status.code == 'completed' %}bg-success
+                                    {% elif task.status.code == 'rejected' %}bg-danger
+                                    {% else %}bg-secondary{% endif %} small">
+                                    {{ task.status.name }}
+                                </span>
+                            </div>
+                            
+                            <div class="small text-muted mb-2">
+                                <div><strong>编号：</strong>{{ task.task_number }}</div>
+                                <div><strong>类型：</strong>{{ task.test_type.name }}</div>
+                                <div><strong>申请人：</strong>{{ task.requester.username }}</div>
+                                {% if task.assignee %}
+                                <div><strong>负责人：</strong>{{ task.assignee.username }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    {{ task.created_at|timesince }}前创建
+                                </small>
+                                <span class="badge 
+                                    {% if task.priority.code == 'high' %}bg-danger
+                                    {% elif task.priority.code == 'medium' %}bg-warning
+                                    {% else %}bg-success{% endif %} small">
+                                    {{ task.priority.name }}
+                                </span>
+                            </div>
+                            
+                            {% if task.is_overdue %}
+                            <div class="mt-2">
+                                <small class="text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>已逾期
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                        </a>
+                        {% endfor %}
+                        
+                        <div class="text-center mt-3">
+                            <a href="{% url 'tasks:task_list' %}" class="btn btn-outline-primary btn-sm">
+                                查看全部任务
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
+                            <p class="text-muted">暂无任务</p>
+                            <a href="{% url 'tasks:task_create' %}" class="btn btn-primary btn-sm">
+                                创建第一个任务
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 引入 Chart.js (本地加载) -->
+<script src="{% static 'vendor/chart.min.js' %}"></script>
+
+<!-- 传递数据到前端 -->
+{{ task_by_type|json_script:"task-type-data" }}
+{{ task_by_priority|json_script:"task-priority-data" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        // ==================== 任务类型分布图表 ====================
+        const typeDataElement = document.getElementById('task-type-data');
+        const typeCtx = document.getElementById('typeChart');
+        
+        if (typeDataElement && typeCtx) {
+            const rawTypeData = JSON.parse(typeDataElement.textContent);
+            
+            // 检查是否有数据
+            if (rawTypeData && Object.keys(rawTypeData).length > 0) {
+                const typeLabels = Object.keys(rawTypeData);
+                const typeValues = Object.values(rawTypeData);
+                
+                new Chart(typeCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: typeLabels,
+                        datasets: [{
+                            data: typeValues,
+                            backgroundColor: [
+                                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', 
+                                '#e74a3b', '#858796', '#5a5c69', '#2e59d9'
+                            ],
+                            hoverBackgroundColor: [
+                                '#2e59d9', '#17a673', '#2c9faf', '#dda20a',
+                                '#be2617', '#60616f', '#373840', '#224abe'
+                            ],
+                            hoverBorderColor: "rgba(234, 236, 244, 1)",
+                        }],
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                backgroundColor: "rgb(255,255,255)",
+                                bodyColor: "#858796",
+                                borderColor: '#dddfeb',
+                                borderWidth: 1,
+                                padding: 15,
+                                displayColors: false,
+                            }
+                        },
+                        cutout: '80%',
+                    },
+                });
+            } else {
+                // 无数据处理
+                showNoData(typeCtx);
+            }
+        }
+
+        // ==================== 优先级分布图表 ====================
+        const priorityDataElement = document.getElementById('task-priority-data');
+        const priorityCtx = document.getElementById('priorityChart');
+        
+        if (priorityDataElement && priorityCtx) {
+            const rawPriorityData = JSON.parse(priorityDataElement.textContent);
+            
+            if (rawPriorityData && Object.keys(rawPriorityData).length > 0) {
+                const priorityLabels = Object.keys(rawPriorityData);
+                const priorityValues = Object.values(rawPriorityData);
+                
+                // 颜色映射逻辑
+                const bgColors = priorityLabels.map(label => {
+                    if (label.includes('高')) return '#e74a3b'; // High - Red
+                    if (label.includes('中')) return '#f6c23e'; // Medium - Yellow
+                    return '#1cc88a'; // Low - Green
+                });
+
+                new Chart(priorityCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: priorityLabels,
+                        datasets: [{
+                            label: "任务数量",
+                            backgroundColor: bgColors,
+                            hoverBackgroundColor: bgColors,
+                            borderColor: "#4e73df",
+                            data: priorityValues,
+                        }],
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        layout: {
+                            padding: {
+                                left: 10,
+                                right: 25,
+                                top: 25,
+                                bottom: 0
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false,
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    maxTicksLimit: 6
+                                },
+                                maxBarThickness: 25,
+                            },
+                            y: {
+                                min: 0,
+                                ticks: {
+                                    maxTicksLimit: 5,
+                                    padding: 10,
+                                    // 确保只显示整数
+                                    callback: function(value) { if (Number.isInteger(value)) { return value; } }
+                                },
+                                grid: {
+                                    color: "rgb(234, 236, 244)",
+                                    drawBorder: false,
+                                    borderDash: [2],
+                                    zeroLineBorderDash: [2]
+                                }
+                            },
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: "rgb(255,255,255)",
+                                bodyColor: "#858796",
+                                titleColor: '#6e707e',
+                                titleFont: { size: 14 },
+                                borderColor: '#dddfeb',
+                                borderWidth: 1,
+                                padding: 15,
+                                displayColors: false,
+                            }
+                        }
+                    }
+                });
+            } else {
+                showNoData(priorityCtx);
+            }
+        }
+
+    } catch (error) {
+        console.error('Chart initialization failed:', error);
+    }
+    
+    // 辅助函数：显示无数据状态
+    function showNoData(canvasElement) {
+        const parent = canvasElement.parentElement;
+        parent.innerHTML = '<div class="text-center py-5"><i class="fas fa-chart-area fa-3x text-gray-300 mb-3"></i><p class="text-muted">暂无数据</p></div>';
+    }
+});
+</script>
+{% endblock %}

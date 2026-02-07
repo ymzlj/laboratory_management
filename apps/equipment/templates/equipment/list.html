@@ -1,0 +1,425 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}设备列表 - 试验室管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+    }
+    
+    .equipment-table {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+    }
+    
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-in-use {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .status-maintenance {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-repair {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-retired {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .maintenance-due {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .warranty-expired {
+        color: #fd7e14;
+        font-weight: bold;
+    }
+    
+    .bulk-actions {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: none;
+    }
+    
+    .table-responsive {
+        border-radius: 10px;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">设备列表</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:index' %}">设备管理</a></li>
+                    <li class="breadcrumb-item active">设备列表</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'equipment:create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 新增设备
+            </a>
+            <a href="?export=csv" class="btn btn-outline-success">
+                <i class="fas fa-download"></i> 导出CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- 搜索筛选 -->
+    <div class="card search-card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-search"></i> 搜索筛选
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="searchForm">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        {{ form.search.label_tag }}
+                        {{ form.search }}
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        {{ form.status.label_tag }}
+                        {{ form.status }}
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        {{ form.manufacturer.label_tag }}
+                        {{ form.manufacturer }}
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        {{ form.location.label_tag }}
+                        {{ form.location }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        {{ form.responsible_person.label_tag }}
+                        {{ form.responsible_person }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <div class="form-check">
+                            {{ form.maintenance_due }}
+                            {{ form.maintenance_due.label_tag }}
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="form-check">
+                            {{ form.warranty_expired }}
+                            {{ form.warranty_expired.label_tag }}
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-search"></i> 搜索
+                        </button>
+                        <a href="{% url 'equipment:list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-undo"></i> 重置
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 批量操作工具栏 -->
+    <div class="bulk-actions" id="bulkActions">
+        <div class="d-flex justify-content-between align-items-center">
+            <span id="selectedCount">已选择 0 个设备</span>
+            <div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="bulkDelete()">
+                    <i class="fas fa-trash"></i> 批量删除
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
+                    <i class="fas fa-times"></i> 取消选择
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设备列表 -->
+    <div class="equipment-table">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40">
+                            <input type="checkbox" id="selectAll" class="form-check-input">
+                        </th>
+                        <th>设备编号</th>
+                        <th>设备名称</th>
+                        <th>型号</th>
+                        <th>制造商</th>
+                        <th>状态</th>
+                        <th>位置</th>
+                        <th>负责人</th>
+                        <th>维护状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for equipment in equipment_list %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="equipment_ids" value="{{ equipment.id }}" class="form-check-input equipment-checkbox">
+                        </td>
+                        <td>
+                            <a href="{% url 'equipment:detail' equipment.pk %}" class="text-decoration-none">
+                                {{ equipment.equipment_id }}
+                            </a>
+                        </td>
+                        <td>{{ equipment.name }}</td>
+                        <td>{{ equipment.model }}</td>
+                        <td>{{ equipment.manufacturer }}</td>
+                        <td>
+                            <span class="status-badge status-{{ equipment.status }}">
+                                {{ equipment.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ equipment.location }}</td>
+                        <td>
+                            {% if equipment.responsible_person %}
+                                {{ equipment.responsible_person.get_full_name }}
+                            {% else %}
+                                <span class="text-muted">未分配</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if equipment.is_maintenance_due %}
+                                <span class="maintenance-due">
+                                    <i class="fas fa-exclamation-triangle"></i> 需要维护
+                                </span>
+                            {% elif equipment.is_warranty_expired %}
+                                <span class="warranty-expired">
+                                    <i class="fas fa-clock"></i> 保修过期
+                                </span>
+                            {% else %}
+                                <span class="text-success">
+                                    <i class="fas fa-check"></i> 正常
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'equipment:detail' equipment.pk %}" 
+                                   class="btn btn-outline-info" 
+                                   data-bs-toggle="tooltip" 
+                                   title="查看详情">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'equipment:edit' equipment.pk %}" 
+                                   class="btn btn-outline-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="编辑">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-outline-danger" 
+                                        data-bs-toggle="tooltip" 
+                                        title="删除"
+                                        onclick="deleteEquipment({{ equipment.pk }}, '{{ equipment.name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <br>
+                            暂无设备数据
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer">
+            <nav aria-label="设备列表分页">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">首页</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">上一页</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">下一页</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">末页</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <div class="text-center text-muted mt-2">
+                显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条记录
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除设备 <strong id="equipmentName"></strong> 吗？</p>
+                <p class="text-danger">此操作不可撤销！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="post" id="deleteForm" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量删除表单 -->
+<form method="post" id="bulkDeleteForm" action="{% url 'equipment:bulk_delete' %}" style="display: none;">
+    {% csrf_token %}
+    <div id="bulkDeleteInputs"></div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 初始化工具提示
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    // 全选/取消全选
+    $('#selectAll').change(function() {
+        $('.equipment-checkbox').prop('checked', this.checked);
+        updateBulkActions();
+    });
+    
+    // 单个复选框变化
+    $('.equipment-checkbox').change(function() {
+        updateBulkActions();
+        
+        // 更新全选状态
+        const total = $('.equipment-checkbox').length;
+        const checked = $('.equipment-checkbox:checked').length;
+        $('#selectAll').prop('indeterminate', checked > 0 && checked < total);
+        $('#selectAll').prop('checked', checked === total);
+    });
+    
+    // 实时搜索
+    let searchTimeout;
+    $('#id_search').on('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            $('#searchForm').submit();
+        }, 500);
+    });
+});
+
+function updateBulkActions() {
+    const checkedCount = $('.equipment-checkbox:checked').length;
+    if (checkedCount > 0) {
+        $('#bulkActions').show();
+        $('#selectedCount').text(`已选择 ${checkedCount} 个设备`);
+    } else {
+        $('#bulkActions').hide();
+    }
+}
+
+function clearSelection() {
+    $('.equipment-checkbox').prop('checked', false);
+    $('#selectAll').prop('checked', false);
+    $('#selectAll').prop('indeterminate', false);
+    updateBulkActions();
+}
+
+function deleteEquipment(equipmentId, equipmentName) {
+    $('#equipmentName').text(equipmentName);
+    $('#deleteForm').attr('action', `/equipment/${equipmentId}/delete/`);
+    $('#deleteModal').modal('show');
+}
+
+function bulkDelete() {
+    const checkedBoxes = $('.equipment-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+        alert('请选择要删除的设备');
+        return;
+    }
+    
+    if (confirm(`确定要删除选中的 ${checkedBoxes.length} 个设备吗？此操作不可撤销！`)) {
+        const inputs = $('#bulkDeleteInputs');
+        inputs.empty();
+        
+        checkedBoxes.each(function() {
+            inputs.append(`<input type="hidden" name="equipment_ids" value="${this.value}">`);
+        });
+        
+        $('#bulkDeleteForm').submit();
+    }
+}
+</script>
+{% endblock %}

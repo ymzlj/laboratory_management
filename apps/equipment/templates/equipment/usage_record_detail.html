@@ -1,0 +1,595 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}使用记录详情 - 试验室管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .detail-card .card-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 10px 10px 0 0;
+    }
+    
+    .info-row {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        color: #6c757d;
+        margin-bottom: 0;
+    }
+    
+    .status-badge {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .status-in-use {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .status-maintenance {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .status-retired {
+        background-color: #e2e3e5;
+        color: #383d41;
+        border: 1px solid #d6d8db;
+    }
+    
+    .equipment-info {
+        background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .equipment-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #2196f3, #9c27b0);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+    }
+    
+    .duration-display {
+        background: linear-gradient(135deg, #fff3e0, #fce4ec);
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .duration-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #ff9800;
+        margin: 0;
+    }
+    
+    .duration-label {
+        color: #666;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 2rem;
+        margin-bottom: 1rem;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0.5rem;
+        width: 10px;
+        height: 10px;
+        background-color: #007bff;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 2px #007bff;
+    }
+    
+    .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: 0.75rem;
+        top: 1.5rem;
+        width: 2px;
+        height: calc(100% - 1rem);
+        background-color: #dee2e6;
+    }
+    
+    .timeline-item:last-child::after {
+        display: none;
+    }
+    
+    .timeline-content {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-left: 1rem;
+    }
+    
+    .timeline-time {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .timeline-title {
+        font-weight: 600;
+        color: #495057;
+        margin: 0.25rem 0;
+    }
+    
+    .timeline-desc {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+    
+    .action-buttons {
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+    }
+    
+    .btn-action {
+        margin-bottom: 0.5rem;
+        width: 100%;
+        border-radius: 25px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .related-records {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .record-item {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.2s ease;
+    }
+    
+    .record-item:hover {
+        border-color: #007bff;
+        box-shadow: 0 2px 8px rgba(0,123,255,0.1);
+    }
+    
+    .record-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .record-meta {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .alert-custom {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">使用记录详情</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:index' %}">设备管理</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:usage_record_list' %}">使用记录</a></li>
+                    <li class="breadcrumb-item active">记录详情</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 主要内容 -->
+        <div class="col-lg-8">
+            <!-- 设备信息 -->
+            <div class="equipment-info">
+                <div class="row align-items-center">
+                    <div class="col-auto">
+                        <div class="equipment-icon">
+                            <i class="fas fa-desktop"></i>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <h4 class="mb-1">{{ record.equipment.name }}</h4>
+                        <p class="text-muted mb-1">设备编号：{{ record.equipment.equipment_id }}</p>
+                        <p class="text-muted mb-0">型号：{{ record.equipment.model }} | 制造商：{{ record.equipment.manufacturer }}</p>
+                    </div>
+                    <div class="col-auto">
+                        <span class="status-badge status-{{ record.equipment.status }}">
+                            {% if record.equipment.status == 'available' %}
+                                可用
+                            {% elif record.equipment.status == 'in_use' %}
+                                使用中
+                            {% elif record.equipment.status == 'maintenance' %}
+                                维护中
+                            {% elif record.equipment.status == 'retired' %}
+                                已退役
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 使用时长显示 -->
+            {% if record.duration_hours %}
+            <div class="duration-display">
+                <h3 class="duration-number">{{ record.duration_hours|floatformat:1 }}</h3>
+                <p class="duration-label">使用时长（小时）</p>
+            </div>
+            {% endif %}
+
+            <!-- 基本信息 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle"></i> 基本信息
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">使用人员</div>
+                                <div class="info-value">
+                                    <i class="fas fa-user"></i> {{ record.user.get_full_name|default:record.user.username }}
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">开始时间</div>
+                                <div class="info-value">
+                                    <i class="fas fa-clock"></i> {{ record.start_time|date:"Y-m-d H:i:s" }}
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">结束时间</div>
+                                <div class="info-value">
+                                    <i class="fas fa-clock"></i> 
+                                    {% if record.end_time %}
+                                        {{ record.end_time|date:"Y-m-d H:i:s" }}
+                                    {% else %}
+                                        <span class="text-warning">使用中</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-row">
+                                <div class="info-label">关联任务</div>
+                                <div class="info-value">
+                                    {% if record.task %}
+                                        <i class="fas fa-tasks"></i> 
+                                        <a href="{% url 'tasks:detail' record.task.id %}">{{ record.task.name }}</a>
+                                    {% else %}
+                                        <span class="text-muted">无关联任务</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">使用后状态</div>
+                                <div class="info-value">
+                                    {% if record.equipment_status_after %}
+                                        <span class="status-badge status-{{ record.equipment_status_after }}">
+                                            {% if record.equipment_status_after == 'available' %}
+                                                可用
+                                            {% elif record.equipment_status_after == 'in_use' %}
+                                                使用中
+                                            {% elif record.equipment_status_after == 'maintenance' %}
+                                                维护中
+                                            {% elif record.equipment_status_after == 'retired' %}
+                                                已退役
+                                            {% endif %}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">未设置</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-label">记录时间</div>
+                                <div class="info-value">
+                                    <i class="fas fa-calendar"></i> {{ record.created_at|date:"Y-m-d H:i:s" }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 使用详情 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-clipboard-list"></i> 使用详情
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="info-row">
+                        <div class="info-label">使用目的</div>
+                        <div class="info-value">
+                            {% if record.purpose %}
+                                {{ record.purpose }}
+                            {% else %}
+                                <span class="text-muted">未填写</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">使用说明</div>
+                        <div class="info-value">
+                            {% if record.notes %}
+                                {{ record.notes|linebreaks }}
+                            {% else %}
+                                <span class="text-muted">无备注</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 使用时间线 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-history"></i> 使用时间线
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline-item">
+                        <div class="timeline-content">
+                            <div class="timeline-time">{{ record.start_time|date:"Y-m-d H:i:s" }}</div>
+                            <div class="timeline-title">开始使用设备</div>
+                            <div class="timeline-desc">{{ record.user.get_full_name|default:record.user.username }} 开始使用 {{ record.equipment.name }}</div>
+                        </div>
+                    </div>
+                    
+                    {% if record.end_time %}
+                    <div class="timeline-item">
+                        <div class="timeline-content">
+                            <div class="timeline-time">{{ record.end_time|date:"Y-m-d H:i:s" }}</div>
+                            <div class="timeline-title">结束使用</div>
+                            <div class="timeline-desc">
+                                使用结束，总时长：{{ record.duration_hours|floatformat:1 }} 小时
+                                {% if record.equipment_status_after %}
+                                    <br>设备状态更新为：
+                                    {% if record.equipment_status_after == 'available' %}
+                                        可用
+                                    {% elif record.equipment_status_after == 'maintenance' %}
+                                        维护中
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="timeline-item">
+                        <div class="timeline-content">
+                            <div class="timeline-time">当前</div>
+                            <div class="timeline-title">正在使用中</div>
+                            <div class="timeline-desc">设备正在使用中，尚未结束</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 侧边栏 -->
+        <div class="col-lg-4">
+            <!-- 操作按钮 -->
+            <div class="action-buttons">
+                <div class="card detail-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-cogs"></i> 操作
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <a href="{% url 'equipment:usage_record_edit' record.id %}" class="btn btn-primary btn-action">
+                            <i class="fas fa-edit"></i> 编辑记录
+                        </a>
+                        <a href="{% url 'equipment:detail' record.equipment.id %}" class="btn btn-info btn-action">
+                            <i class="fas fa-desktop"></i> 查看设备
+                        </a>
+                        {% if record.task %}
+                        <a href="{% url 'tasks:detail' record.task.id %}" class="btn btn-success btn-action">
+                            <i class="fas fa-tasks"></i> 查看任务
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'equipment:usage_record_list' %}" class="btn btn-secondary btn-action">
+                            <i class="fas fa-list"></i> 返回列表
+                        </a>
+                        <button type="button" class="btn btn-danger btn-action" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fas fa-trash"></i> 删除记录
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设备状态提醒 -->
+            {% if record.equipment.is_maintenance_due or record.equipment.is_warranty_expired %}
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> 设备提醒
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if record.equipment.is_maintenance_due %}
+                    <div class="alert alert-warning alert-custom">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-wrench"></i> 维护提醒
+                        </h6>
+                        <p class="mb-0">
+                            该设备需要进行维护<br>
+                            下次维护日期：{{ record.equipment.next_maintenance_date|date:"Y-m-d" }}
+                        </p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if record.equipment.is_warranty_expired %}
+                    <div class="alert alert-danger alert-custom">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-circle"></i> 保修过期
+                        </h6>
+                        <p class="mb-0">
+                            该设备保修已过期<br>
+                            保修到期日期：{{ record.equipment.warranty_end_date|date:"Y-m-d" }}
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 相关记录 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-history"></i> 该设备的其他使用记录
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if related_records %}
+                        <div class="related-records">
+                            {% for related in related_records %}
+                            <div class="record-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <a href="{% url 'equipment:usage_record_detail' related.id %}">
+                                                {{ related.user.get_full_name|default:related.user.username }}
+                                            </a>
+                                        </h6>
+                                        <div class="record-meta">
+                                            <i class="fas fa-clock"></i> {{ related.start_time|date:"m-d H:i" }}
+                                            {% if related.duration_hours %}
+                                                | {{ related.duration_hours|floatformat:1 }}h
+                                            {% endif %}
+                                        </div>
+                                        {% if related.purpose %}
+                                        <p class="text-muted small mb-0 mt-1">{{ related.purpose|truncatechars:50 }}</p>
+                                        {% endif %}
+                                    </div>
+                                    {% if related.id == record.id %}
+                                    <span class="badge bg-primary">当前</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'equipment:usage_record_list' %}?equipment={{ record.equipment.id }}" class="btn btn-sm btn-outline-primary">
+                                查看全部记录
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-history fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">暂无其他使用记录</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除这条使用记录吗？</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>注意：</strong>删除后无法恢复，请谨慎操作。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="post" action="{% url 'equipment:usage_record_delete' record.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 工具提示
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    // 删除确认
+    $('#deleteModal').on('show.bs.modal', function() {
+        console.log('准备删除使用记录');
+    });
+});
+</script>
+{% endblock %}

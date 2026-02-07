@@ -1,0 +1,660 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}工装维护记录详情{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-container {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .tooling-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .tooling-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255,255,255,0.1);
+        transform: rotate(45deg);
+    }
+    
+    .tooling-info {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .tooling-name {
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .tooling-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-top: 15px;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .status-badge {
+        padding: 6px 15px;
+        border-radius: 25px;
+        font-size: 0.9rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-in-use {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-maintenance {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .maintenance-cost {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .cost-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .cost-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .info-section {
+        margin-bottom: 30px;
+    }
+    
+    .section-title {
+        color: #495057;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #007bff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+    
+    .info-item {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        border-left: 4px solid #007bff;
+    }
+    
+    .info-label {
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 5px;
+        font-size: 0.9rem;
+    }
+    
+    .info-value {
+        color: #212529;
+        font-size: 1rem;
+    }
+    
+    .maintenance-type-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .type-routine {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .type-preventive {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .type-corrective {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .type-calibration {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .result-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: bold;
+    }
+    
+    .result-completed {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .result-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .result-failed {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #007bff;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: -22px;
+        top: 20px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #007bff;
+        border: 3px solid white;
+        box-shadow: 0 0 0 3px #007bff;
+    }
+    
+    .timeline-time {
+        font-weight: bold;
+        color: #007bff;
+        margin-bottom: 5px;
+    }
+    
+    .timeline-content {
+        color: #495057;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 30px;
+    }
+    
+    .btn-action {
+        border-radius: 25px;
+        padding: 8px 20px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .alert-custom {
+        border-radius: 10px;
+        border: none;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .calibration-info {
+        background: #fff3e0;
+        border: 1px solid #ffb74d;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .calibration-info h6 {
+        color: #f57c00;
+        margin-bottom: 15px;
+    }
+    
+    .calibration-overdue {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .related-records {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 30px;
+    }
+    
+    .record-item {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid #28a745;
+        transition: all 0.3s ease;
+    }
+    
+    .record-item:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transform: translateX(5px);
+    }
+    
+    .record-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    
+    .record-time {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-item {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: center;
+        border-left: 4px solid #007bff;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #007bff;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">工装维护记录详情</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tooling:index' %}">工装管理</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tooling:maintenance_record_list' %}">维护记录</a></li>
+                    <li class="breadcrumb-item active">记录详情</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="action-buttons">
+        <a href="{% url 'tooling:maintenance_record_edit' record.id %}" class="btn btn-warning btn-action">
+            <i class="fas fa-edit"></i> 编辑记录
+        </a>
+        <a href="{% url 'tooling:detail' record.tooling.id %}" class="btn btn-info btn-action">
+            <i class="fas fa-tools"></i> 查看工装
+        </a>
+        <a href="{% url 'tooling:maintenance_record_create' %}?tooling={{ record.tooling.id }}" class="btn btn-success btn-action">
+            <i class="fas fa-plus"></i> 新增维护
+        </a>
+        <a href="{% url 'tooling:maintenance_record_list' %}" class="btn btn-secondary btn-action">
+            <i class="fas fa-arrow-left"></i> 返回列表
+        </a>
+        <button type="button" class="btn btn-danger btn-action" onclick="confirmDelete()">
+            <i class="fas fa-trash"></i> 删除记录
+        </button>
+    </div>
+
+    <!-- 工装信息头部 -->
+    <div class="tooling-header">
+        <div class="tooling-info">
+            <div class="tooling-name">{{ record.tooling.name }}</div>
+            <div class="tooling-meta">
+                <div class="meta-item">
+                    <i class="fas fa-barcode"></i>
+                    <span>编号：{{ record.tooling.tooling_id }}</span>
+                </div>
+                <div class="meta-item">
+                    <i class="fas fa-cog"></i>
+                    <span>型号：{{ record.tooling.model }}</span>
+                </div>
+                <div class="meta-item">
+                    <i class="fas fa-industry"></i>
+                    <span>制造商：{{ record.tooling.manufacturer }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="status-badge status-{{ record.tooling.status }}">
+                        {{ record.tooling.get_status_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 维护费用 -->
+    {% if record.maintenance_cost %}
+    <div class="maintenance-cost">
+        <div class="cost-value">¥{{ record.maintenance_cost }}</div>
+        <div class="cost-label">维护费用</div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- 基本信息 -->
+            <div class="detail-container">
+                <div class="info-section">
+                    <div class="section-title">
+                        <i class="fas fa-info-circle"></i>
+                        基本信息
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">维护类型</div>
+                            <div class="info-value">
+                                <span class="maintenance-type-badge type-{{ record.maintenance_type }}">
+                                    {{ record.get_maintenance_type_display }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">维护人员</div>
+                            <div class="info-value">{{ record.maintainer.get_full_name|default:record.maintainer.username }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">维护日期</div>
+                            <div class="info-value">{{ record.maintenance_date|date:"Y年m月d日" }}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">维护结果</div>
+                            <div class="info-value">
+                                <span class="result-badge result-{{ record.maintenance_result }}">
+                                    {{ record.get_maintenance_result_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% if record.next_maintenance_date %}
+                        <div class="info-item">
+                            <div class="info-label">下次维护日期</div>
+                            <div class="info-value">{{ record.next_maintenance_date|date:"Y年m月d日" }}</div>
+                        </div>
+                        {% endif %}
+                        <div class="info-item">
+                            <div class="info-label">记录时间</div>
+                            <div class="info-value">{{ record.created_at|date:"Y年m月d日 H:i" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 维护详情 -->
+            <div class="detail-container">
+                <div class="info-section">
+                    <div class="section-title">
+                        <i class="fas fa-clipboard-list"></i>
+                        维护详情
+                    </div>
+                    <div class="info-grid">
+                        <div class="info-item" style="grid-column: 1 / -1;">
+                            <div class="info-label">维护内容</div>
+                            <div class="info-value">{{ record.maintenance_content|linebreaks }}</div>
+                        </div>
+                        {% if record.replaced_parts %}
+                        <div class="info-item" style="grid-column: 1 / -1;">
+                            <div class="info-label">更换部件</div>
+                            <div class="info-value">{{ record.replaced_parts|linebreaks }}</div>
+                        </div>
+                        {% endif %}
+                        {% if record.notes %}
+                        <div class="info-item" style="grid-column: 1 / -1;">
+                            <div class="info-label">备注</div>
+                            <div class="info-value">{{ record.notes|linebreaks }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 校准信息 -->
+            {% if record.maintenance_type == 'calibration' %}
+            <div class="calibration-info">
+                <h6><i class="fas fa-balance-scale"></i> 校准信息</h6>
+                <div class="info-grid">
+                    {% if record.calibration_certificate %}
+                    <div class="info-item">
+                        <div class="info-label">校准证书编号</div>
+                        <div class="info-value">{{ record.calibration_certificate }}</div>
+                    </div>
+                    {% endif %}
+                    {% if record.calibration_due_date %}
+                    <div class="info-item">
+                        <div class="info-label">校准到期日期</div>
+                        <div class="info-value">
+                            {{ record.calibration_due_date|date:"Y年m月d日" }}
+                            {% if record.calibration_due_date|date:"Y-m-d" < today|date:"Y-m-d" %}
+                                <br><span class="calibration-overdue">已过期</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 维护时间线 -->
+            <div class="detail-container">
+                <div class="info-section">
+                    <div class="section-title">
+                        <i class="fas fa-history"></i>
+                        维护时间线
+                    </div>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-time">{{ record.maintenance_date|date:"Y年m月d日" }}</div>
+                            <div class="timeline-content">
+                                <strong>{{ record.get_maintenance_type_display }}</strong><br>
+                                维护人员：{{ record.maintainer.get_full_name|default:record.maintainer.username }}<br>
+                                维护结果：{{ record.get_maintenance_result_display }}
+                                {% if record.maintenance_cost %}
+                                    <br>维护费用：¥{{ record.maintenance_cost }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if record.next_maintenance_date %}
+                        <div class="timeline-item">
+                            <div class="timeline-time">{{ record.next_maintenance_date|date:"Y年m月d日" }}</div>
+                            <div class="timeline-content">
+                                <strong>计划下次维护</strong><br>
+                                建议进行下一次维护
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- 下次维护提醒 -->
+            {% if record.tooling.is_maintenance_due %}
+            <div class="alert alert-warning alert-custom">
+                <h6><i class="fas fa-exclamation-triangle"></i> 维护提醒</h6>
+                <p class="mb-0">该工装需要进行维护，请及时安排维护工作。</p>
+                <small class="text-muted">
+                    下次维护日期：{{ record.tooling.next_maintenance_date|date:"Y年m月d日" }}
+                </small>
+            </div>
+            {% endif %}
+
+            <!-- 工装维护统计 -->
+            <div class="detail-container">
+                <h6><i class="fas fa-chart-bar"></i> 工装维护统计</h6>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value">{{ tooling_stats.total_maintenance }}</div>
+                        <div class="stat-label">总维护次数</div>
+                    </div>
+                    <div class="stat-item" style="border-left-color: #28a745;">
+                        <div class="stat-value" style="color: #28a745;">{{ tooling_stats.completed_maintenance }}</div>
+                        <div class="stat-label">已完成维护</div>
+                    </div>
+                    <div class="stat-item" style="border-left-color: #ffc107;">
+                        <div class="stat-value" style="color: #ffc107;">{{ tooling_stats.pending_maintenance }}</div>
+                        <div class="stat-label">待完成维护</div>
+                    </div>
+                    <div class="stat-item" style="border-left-color: #dc3545;">
+                        <div class="stat-value" style="color: #dc3545;">¥{{ tooling_stats.total_cost|default:0 }}</div>
+                        <div class="stat-label">总维护费用</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 该工装的其他维护记录 -->
+            <div class="related-records">
+                <h6><i class="fas fa-history"></i> 该工装的其他维护记录</h6>
+                {% for other_record in other_maintenance_records %}
+                <div class="record-item">
+                    <div class="record-meta">
+                        <strong>{{ other_record.get_maintenance_type_display }}</strong>
+                        <span class="record-time">{{ other_record.maintenance_date|date:"m-d" }}</span>
+                    </div>
+                    <div>{{ other_record.maintainer.get_full_name|default:other_record.maintainer.username }}</div>
+                    <div>{{ other_record.maintenance_content|truncatechars:50 }}</div>
+                    <div class="mt-2">
+                        <a href="{% url 'tooling:maintenance_record_detail' other_record.id %}" class="btn btn-sm btn-outline-primary">
+                            查看详情
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-3">
+                    <i class="fas fa-inbox fa-2x mb-2"></i>
+                    <div>暂无其他维护记录</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除这条维护记录吗？此操作不可撤销。</p>
+                <div class="alert alert-warning">
+                    <strong>记录信息：</strong><br>
+                    工装：{{ record.tooling.name }}<br>
+                    维护类型：{{ record.get_maintenance_type_display }}<br>
+                    维护日期：{{ record.maintenance_date|date:"Y年m月d日" }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <form method="post" action="{% url 'tooling:maintenance_record_delete' record.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 初始化工具提示
+    $('[data-toggle="tooltip"]').tooltip();
+});
+
+// 删除确认
+function confirmDelete() {
+    $('#deleteModal').modal('show');
+}
+</script>
+{% endblock %}

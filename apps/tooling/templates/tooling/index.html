@@ -1,0 +1,362 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}工装管理{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stats-card.available {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .stats-card.in-use {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .stats-card.maintenance {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+    
+    .stats-card.total {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stats-label {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+    
+    .alert-card {
+        border-left: 4px solid #dc3545;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .alert-card.warning {
+        border-left-color: #ffc107;
+    }
+    
+    .quick-actions {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .action-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 25px;
+        text-decoration: none;
+        display: inline-block;
+        margin: 5px;
+        transition: all 0.3s ease;
+    }
+    
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .recent-records {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .record-item {
+        border-bottom: 1px solid #eee;
+        padding: 10px 0;
+    }
+    
+    .record-item:last-child {
+        border-bottom: none;
+    }
+    
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-in-use {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .status-maintenance {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-repair {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-retired {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">工装管理</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item active">工装管理</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card available">
+                <div class="stats-number">{{ stats.available_count }}</div>
+                <div class="stats-label">可用工装</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card in-use">
+                <div class="stats-number">{{ stats.in_use_count }}</div>
+                <div class="stats-label">使用中</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card maintenance">
+                <div class="stats-number">{{ stats.maintenance_count }}</div>
+                <div class="stats-label">维护中</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card total">
+                <div class="stats-number">{{ stats.total_count }}</div>
+                <div class="stats-label">工装总数</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 警告信息 -->
+    {% if maintenance_due_toolings %}
+    <div class="alert-card warning">
+        <h6><i class="fas fa-exclamation-triangle"></i> 维护提醒</h6>
+        <p class="mb-0">
+            有 {{ maintenance_due_toolings|length }} 个工装需要维护：
+            {% for tooling in maintenance_due_toolings %}
+                <a href="{% url 'tooling:detail' tooling.id %}" class="text-warning">{{ tooling.name }}</a>
+                {% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+    </div>
+    {% endif %}
+
+    {% if calibration_due_toolings %}
+    <div class="alert-card">
+        <h6><i class="fas fa-exclamation-circle"></i> 校准过期</h6>
+        <p class="mb-0">
+            有 {{ calibration_due_toolings|length }} 个工装校准已过期：
+            {% for tooling in calibration_due_toolings %}
+                <a href="{% url 'tooling:detail' tooling.id %}" class="text-danger">{{ tooling.name }}</a>
+                {% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- 快速操作 -->
+        <div class="col-md-6">
+            <div class="quick-actions">
+                <h5 class="mb-3">快速操作</h5>
+                <a href="{% url 'tooling:list' %}" class="action-btn">
+                    <i class="fas fa-list"></i> 工装列表
+                </a>
+                <a href="{% url 'tooling:usage_record_list' %}" class="action-btn">
+                    <i class="fas fa-history"></i> 使用记录
+                </a>
+                <a href="{% url 'tooling:maintenance_record_list' %}" class="action-btn">
+                    <i class="fas fa-tools"></i> 维护记录
+                </a>
+                <a href="{% url 'tooling:create' %}" class="action-btn">
+                    <i class="fas fa-plus"></i> 新增工装
+                </a>
+            </div>
+
+            <!-- 最近使用记录 -->
+            <div class="recent-records">
+                <h5 class="mb-3">最近使用记录</h5>
+                {% if recent_usage_records %}
+                    {% for record in recent_usage_records %}
+                    <div class="record-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ record.tooling.name }}</strong>
+                                <small class="text-muted d-block">
+                                    使用人：{{ record.user.get_full_name|default:record.user.username }}
+                                </small>
+                                <small class="text-muted">
+                                    {{ record.start_time|date:"Y-m-d H:i" }}
+                                    {% if record.end_time %}
+                                        - {{ record.end_time|date:"Y-m-d H:i" }}
+                                    {% else %}
+                                        - 使用中
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <div>
+                                <span class="status-badge status-{{ record.tooling_condition }}">
+                                    {{ record.get_tooling_condition_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'tooling:usage_record_list' %}" class="btn btn-outline-primary btn-sm">
+                            查看全部使用记录
+                        </a>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">暂无使用记录</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 最近维护记录 -->
+        <div class="col-md-6">
+            <div class="recent-records">
+                <h5 class="mb-3">最近维护记录</h5>
+                {% if recent_maintenance_records %}
+                    {% for record in recent_maintenance_records %}
+                    <div class="record-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ record.tooling.name }}</strong>
+                                <small class="text-muted d-block">
+                                    维护人：{{ record.maintenance_person.get_full_name|default:record.maintenance_person.username }}
+                                </small>
+                                <small class="text-muted">
+                                    {{ record.maintenance_date|date:"Y-m-d" }} - {{ record.get_maintenance_type_display }}
+                                </small>
+                            </div>
+                            <div>
+                                <span class="status-badge status-{{ record.maintenance_result }}">
+                                    {{ record.get_maintenance_result_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'tooling:maintenance_record_list' %}" class="btn btn-outline-primary btn-sm">
+                            查看全部维护记录
+                        </a>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">暂无维护记录</p>
+                {% endif %}
+            </div>
+
+            <!-- 工装状态分布 -->
+            <div class="recent-records">
+                <h5 class="mb-3">工装状态分布</h5>
+                <div class="row text-center">
+                    <div class="col-6 mb-2">
+                        <div class="border rounded p-2">
+                            <div class="h5 mb-1 text-primary">{{ stats.available_count }}</div>
+                            <small class="text-muted">可用</small>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <div class="border rounded p-2">
+                            <div class="h5 mb-1 text-success">{{ stats.in_use_count }}</div>
+                            <small class="text-muted">使用中</small>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <div class="border rounded p-2">
+                            <div class="h5 mb-1 text-warning">{{ stats.maintenance_count }}</div>
+                            <small class="text-muted">维护中</small>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <div class="border rounded p-2">
+                            <div class="h5 mb-1 text-danger">{{ stats.repair_count }}</div>
+                            <small class="text-muted">维修中</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 添加工具提示
+    $('[data-toggle="tooltip"]').tooltip();
+    
+    // 卡片悬停效果
+    $('.stats-card').hover(
+        function() {
+            $(this).addClass('shadow-lg');
+        },
+        function() {
+            $(this).removeClass('shadow-lg');
+        }
+    );
+    
+    // 动画效果
+    $('.stats-card').each(function(index) {
+        $(this).delay(index * 100).animate({
+            opacity: 1
+        }, 500);
+    });
+});
+</script>
+{% endblock %}

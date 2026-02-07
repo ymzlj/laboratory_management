@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}试验类型管理 - 试验室管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-vial me-2"></i>试验类型管理</h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'index' %}">首页</a></li>
+                            <li class="breadcrumb-item active">试验类型管理</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <a href="{% url 'tasks:test_type_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>新建试验类型
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <!-- 搜索表单 -->
+                    <form method="get" class="mb-4">
+                        <div class="row g-3">
+                            <div class="col-md-10">
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" name="search" 
+                                           value="{{ search_query }}" 
+                                           placeholder="搜索试验类型名称、代码或描述..."
+                                           id="search">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>搜索
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    {% if test_types %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="5%">#</th>
+                                        <th width="10%">级别</th>
+                                        <th width="20%">类型名称</th>
+                                        <th width="15%">类型代码</th>
+                                        <th width="35%">描述</th>
+                                        <th width="10%">任务数量</th>
+                                        <th width="15%">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for test_type in test_types %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>
+                                            {% if test_type.level_type == 1 %}
+                                                <span class="badge bg-primary">总类型</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">分类型</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if test_type.is_sub %}
+                                                <div class="ms-4 border-start border-2 ps-2">
+                                                    {{ test_type.name }}
+                                                </div>
+                                            {% else %}
+                                                <strong>{{ test_type.name }}</strong>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <code>{{ test_type.code }}</code>
+                                        </td>
+                                        <td>
+                                            <span class="text-muted">{{ test_type.description|truncatewords:10|default:"暂无描述" }}</span>
+                                        </td>
+                                        <td>
+                                            {% if test_type.level_type == 1 %}
+                                                <span class="badge bg-info" title="主任务数量">{{ test_type.task_count }} 个主任务</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark border" title="子任务数量">{{ test_type.task_count }} 个子任务</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{% url 'tasks:test_type_detail' test_type.pk %}" 
+                                                   class="btn btn-sm btn-outline-primary" title="查看详情">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'tasks:test_type_update' test_type.pk %}" 
+                                                   class="btn btn-sm btn-outline-secondary" title="编辑">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        onclick="deleteTestType({{ test_type.pk }}, '{{ test_type.name }}')" title="删除">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {% if is_paginated %}
+                            <nav aria-label="试验类型列表分页">
+                                <ul class="pagination justify-content-center mb-0">
+                                    {% if page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                <i class="fas fa-angle-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                <i class="fas fa-angle-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+
+                                    {% for num in page_obj.paginator.page_range %}
+                                        {% if page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+
+                                    {% if page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">  
+                                                <i class="fas fa-angle-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                <i class="fas fa-angle-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-vial fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted mb-2">暂无试验类型</h5>
+                            <p class="text-muted mb-3">当前系统中还没有创建任何试验类型</p>
+                            <a href="{% url 'tasks:test_type_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>添加第一个试验类型
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 实时搜索
+let searchTimeout;
+document.getElementById('search').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        this.form.submit();
+    }, 500);
+});
+
+// 删除试验类型
+function deleteTestType(testTypeId, testTypeName) {
+    if (confirm('确定要删除试验类型"' + testTypeName + '"吗？\n\n注意：如果该类型下有任务，将无法删除。')) {
+        fetch(`/tasks/test-types/${testTypeId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                showAlert(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('删除失败：' + error, 'danger');
+        });
+    }
+}
+
+// 显示提示消息
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+
+{% block title %}编辑个人资料 - 实验室管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center py-4">
+        <div class="d-block mb-4 mb-md-0">
+            <nav aria-label="breadcrumb" class="d-none d-md-inline-block">
+                <ol class="breadcrumb breadcrumb-dark breadcrumb-transparent">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'dashboard' %}">
+                            <span class="fas fa-home"></span>
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active" aria-current="page">编辑个人资料</li>
+                </ol>
+            </nav>
+            <h2 class="h4">编辑个人资料</h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card border-0 shadow">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">个人信息</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="profileForm">
+                        {% csrf_token %}
+                        
+                        {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <div class="form-group">
+                                    <label for="{{ form.username.id_for_label }}" class="form-label">
+                                        <span class="fas fa-id-card me-2"></span>用户名
+                                    </label>
+                                    {{ form.username }}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-4">
+                                <div class="form-group">
+                                    <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                        <span class="fas fa-user me-2"></span>姓名 *
+                                    </label>
+                                    {{ form.first_name }}
+                                    <div class="invalid-feedback">
+                                        <i class="fas fa-exclamation-circle me-1"></i>请输入姓名
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <div class="form-group">
+                                    <label for="{{ form.email.id_for_label }}" class="form-label">
+                                        <span class="fas fa-envelope me-2"></span>邮箱
+                                    </label>
+                                    {{ form.email }}
+                                    <div class="invalid-feedback">
+                                        <i class="fas fa-exclamation-circle me-1"></i>请输入有效的邮箱地址
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 mb-4">
+                                <div class="form-group">
+                                    <label for="{{ form.phone.id_for_label }}" class="form-label">
+                                        <span class="fas fa-phone me-2"></span>手机号
+                                    </label>
+                                    {{ form.phone }}
+                                    <div class="invalid-feedback">
+                                        <i class="fas fa-exclamation-circle me-1"></i>请输入有效的手机号码
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <div class="form-group">
+                                    <label for="{{ form.department.id_for_label }}" class="form-label">
+                                        <span class="fas fa-building me-2"></span>部门
+                                    </label>
+                                    {{ form.department }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 mb-4">
+                                <div class="form-group">
+                                    <label for="{{ form.position.id_for_label }}" class="form-label">
+                                        <span class="fas fa-briefcase me-2"></span>职位
+                                    </label>
+                                    {{ form.position }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+                        <h5 class="h6 mb-3 text-danger"><i class="fas fa-lock me-2"></i>修改密码（可选）</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <div class="form-group">
+                                    <label for="{{ form.new_password.id_for_label }}" class="form-label">
+                                        新密码
+                                    </label>
+                                    {{ form.new_password }}
+                                    <div class="form-text">若不修改密码，请留空</div>
+                                    {% if form.new_password.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.new_password.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-4">
+                                <div class="form-group">
+                                    <label for="{{ form.confirm_password.id_for_label }}" class="form-label">
+                                        确认新密码
+                                    </label>
+                                    {{ form.confirm_password }}
+                                    {% if form.confirm_password.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.confirm_password.errors.0 }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-3">
+                            <a href="{% url 'users:profile' %}" class="btn btn-outline-gray-600">
+                                <span class="fas fa-arrow-left me-2"></span>返回个人资料
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <span class="fas fa-save me-2"></span>保存更改
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('profileForm');
+    
+    form.addEventListener('submit', function(e) {
+        // 清除之前的错误状态
+        const invalidFields = form.querySelectorAll('.is-invalid');
+        invalidFields.forEach(field => {
+            field.classList.remove('is-invalid');
+        });
+        
+        const errorMessages = form.querySelectorAll('.invalid-feedback');
+        errorMessages.forEach(msg => {
+            msg.remove();
+        });
+        
+        // 验证必填字段
+        let isValid = true;
+        
+        // 验证姓名
+        const firstNameField = document.getElementById('{{ form.first_name.id_for_label }}');
+        if (!firstNameField.value.trim()) {
+            isValid = false;
+            firstNameField.classList.add('is-invalid');
+            
+            let errorDiv = firstNameField.parentNode.querySelector('.invalid-feedback');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.className = 'invalid-feedback';
+                errorDiv.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>请输入姓名';
+                firstNameField.parentNode.appendChild(errorDiv);
+            }
+        }
+        
+        // 验证邮箱
+        const emailField = document.getElementById('{{ form.email.id_for_label }}');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailField.value.trim() || !emailRegex.test(emailField.value)) {
+            isValid = false;
+            emailField.classList.add('is-invalid');
+            
+            let errorDiv = emailField.parentNode.querySelector('.invalid-feedback');
+            if (!errorDiv) {
+                errorDiv = document.createElement('div');
+                errorDiv.className = 'invalid-feedback';
+                errorDiv.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>请输入有效的邮箱地址';
+                emailField.parentNode.appendChild(errorDiv);
+            }
+        }
+        
+        // 验证手机号（如果填写了）
+        const phoneField = document.getElementById('{{ form.phone.id_for_label }}');
+        if (phoneField.value.trim()) {
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            if (!phoneRegex.test(phoneField.value)) {
+                isValid = false;
+                phoneField.classList.add('is-invalid');
+                
+                let errorDiv = phoneField.parentNode.querySelector('.invalid-feedback');
+                if (!errorDiv) {
+                    errorDiv = document.createElement('div');
+                    errorDiv.className = 'invalid-feedback';
+                    errorDiv.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>请输入有效的手机号码';
+                    phoneField.parentNode.appendChild(errorDiv);
+                }
+            }
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            // 滚动到第一个错误字段
+            const firstError = form.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                firstError.focus();
+            }
+        }
+    });
+    
+    // 实时验证
+    const inputs = form.querySelectorAll('input, select');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.hasAttribute('required') && !this.value.trim()) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+                const errorDiv = this.parentNode.querySelector('.invalid-feedback');
+                if (errorDiv) {
+                    errorDiv.remove();
+                }
+            }
+        });
+        
+        input.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid') && this.value.trim()) {
+                this.classList.remove('is-invalid');
+                const errorDiv = this.parentNode.querySelector('.invalid-feedback');
+                if (errorDiv) {
+                    errorDiv.remove();
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

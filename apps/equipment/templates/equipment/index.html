@@ -1,0 +1,369 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}设备管理 - 试验室管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 15px;
+        color: white;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    
+    .stats-card.available {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    
+    .stats-card.in-use {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .stats-card.maintenance {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .stats-card.warning {
+        background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        color: #333;
+    }
+    
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stats-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .equipment-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .equipment-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+    }
+    
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-in-use {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .status-maintenance {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .status-repair {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-retired {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .recent-activity {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .activity-item {
+        border-left: 3px solid #007bff;
+        padding-left: 1rem;
+        margin-bottom: 1rem;
+        background: #f8f9fa;
+        border-radius: 0 8px 8px 0;
+        padding: 0.75rem 1rem;
+    }
+    
+    .activity-item.maintenance {
+        border-left-color: #28a745;
+    }
+    
+    .activity-item.usage {
+        border-left-color: #17a2b8;
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">设备管理</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item active">设备管理</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'equipment:create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 新增设备
+            </a>
+            <a href="{% url 'equipment:statistics' %}" class="btn btn-outline-info">
+                <i class="fas fa-chart-bar"></i> 统计报表
+            </a>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card available fade-in">
+                <div class="card-body text-center">
+                    <div class="stats-number">{{ available_equipment }}</div>
+                    <div class="stats-label">可用设备</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card in-use fade-in" style="animation-delay: 0.1s;">
+                <div class="card-body text-center">
+                    <div class="stats-number">{{ in_use_equipment }}</div>
+                    <div class="stats-label">使用中设备</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card maintenance fade-in" style="animation-delay: 0.2s;">
+                <div class="card-body text-center">
+                    <div class="stats-number">{{ maintenance_equipment }}</div>
+                    <div class="stats-label">维护中设备</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card fade-in" style="animation-delay: 0.3s;">
+                <div class="card-body text-center">
+                    <div class="stats-number">{{ total_equipment }}</div>
+                    <div class="stats-label">设备总数</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 警告信息 -->
+    {% if maintenance_due > 0 or warranty_expired > 0 %}
+    <div class="row mb-4">
+        {% if maintenance_due > 0 %}
+        <div class="col-md-6 mb-3">
+            <div class="card stats-card warning fade-in">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="mb-1">
+                                <i class="fas fa-exclamation-triangle"></i> 需要维护
+                            </h5>
+                            <p class="mb-0">{{ maintenance_due }} 台设备需要维护</p>
+                        </div>
+                        <div>
+                            <a href="{% url 'equipment:list' %}?maintenance_due=on" class="btn btn-outline-dark btn-sm">
+                                查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if warranty_expired > 0 %}
+        <div class="col-md-6 mb-3">
+            <div class="card stats-card warning fade-in">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h5 class="mb-1">
+                                <i class="fas fa-clock"></i> 保修过期
+                            </h5>
+                            <p class="mb-0">{{ warranty_expired }} 台设备保修已过期</p>
+                        </div>
+                        <div>
+                            <a href="{% url 'equipment:list' %}?warranty_expired=on" class="btn btn-outline-dark btn-sm">
+                                查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 快速操作 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card equipment-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools"></i> 快速操作
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'equipment:list' %}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-list"></i> 设备列表
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'equipment:usage_record_list' %}" class="btn btn-outline-info w-100">
+                                <i class="fas fa-history"></i> 使用记录
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'equipment:maintenance_record_list' %}" class="btn btn-outline-success w-100">
+                                <i class="fas fa-wrench"></i> 维护记录
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'equipment:usage_record_create' %}" class="btn btn-outline-warning w-100">
+                                <i class="fas fa-play"></i> 开始使用
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 最近活动 -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card equipment-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i> 最近使用记录
+                    </h5>
+                </div>
+                <div class="card-body recent-activity">
+                    {% if recent_usage %}
+                        {% for usage in recent_usage %}
+                        <div class="activity-item usage">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ usage.equipment.name }}</h6>
+                                    <p class="mb-1 text-muted">
+                                        使用人：{{ usage.user.get_full_name }}
+                                    </p>
+                                    <p class="mb-0 text-muted">
+                                        目的：{{ usage.usage_purpose }}
+                                    </p>
+                                </div>
+                                <small class="text-muted">
+                                    {{ usage.start_time|date:"m-d H:i" }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center">暂无使用记录</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{% url 'equipment:usage_record_list' %}" class="btn btn-sm btn-outline-primary">
+                        查看全部使用记录
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card equipment-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-wrench"></i> 最近维护记录
+                    </h5>
+                </div>
+                <div class="card-body recent-activity">
+                    {% if recent_maintenance %}
+                        {% for maintenance in recent_maintenance %}
+                        <div class="activity-item maintenance">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ maintenance.equipment.name }}</h6>
+                                    <p class="mb-1 text-muted">
+                                        维护人：{{ maintenance.maintenance_person.get_full_name }}
+                                    </p>
+                                    <p class="mb-0 text-muted">
+                                        类型：{{ maintenance.get_maintenance_type_display }}
+                                    </p>
+                                </div>
+                                <small class="text-muted">
+                                    {{ maintenance.maintenance_date|date:"m-d" }}
+                                </small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center">暂无维护记录</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{% url 'equipment:maintenance_record_list' %}" class="btn btn-sm btn-outline-success">
+                        查看全部维护记录
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 添加工具提示
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    // 卡片悬停效果
+    $('.equipment-card').hover(
+        function() {
+            $(this).addClass('shadow-lg');
+        },
+        function() {
+            $(this).removeClass('shadow-lg');
+        }
+    );
+});
+</script>
+{% endblock %}

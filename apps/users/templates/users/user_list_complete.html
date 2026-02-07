@@ -1,0 +1,590 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}用户管理 - 试验室管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="page-header">
+        <h1 class="page-title">用户管理</h1>
+        <a href="{% url 'users:user_create' %}" class="btn btn-primary">
+            <i class="fas fa-user-plus me-1"></i> 添加用户
+        </a>
+    </div>
+
+    <!-- 统计信息 -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">总用户数</h5>
+                            <h2 class="mb-0">{{ stats.total_users }}</h2>
+                        </div>
+                        <div>
+                            <i class="fas fa-users fa-3x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">在职用户</h5>
+                            <h2 class="mb-0">{{ stats.active_users }}</h2>
+                        </div>
+                        <div>
+                            <i class="fas fa-user-check fa-3x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">管理员</h5>
+                            <h2 class="mb-0">{{ stats.staff_users }}</h2>
+                        </div>
+                        <div>
+                            <i class="fas fa-user-shield fa-3x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-info text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">部门数</h5>
+                            <h2 class="mb-0">{{ stats.departments_count }}</h2>
+                        </div>
+                        <div>
+                            <i class="fas fa-building fa-3x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 搜索和过滤表单 -->
+    <div class="search-form">
+        <form method="get" class="d-flex align-items-end flex-wrap">
+            <div class="form-group me-3 mb-3">
+                <label class="form-label">工号</label>
+                <input type="text" class="form-control" name="search" value="{{ search_query }}" placeholder="请输入工号">
+            </div>
+            <div class="form-group me-3 mb-3">
+                <label class="form-label">部门</label>
+                <select class="form-control" name="department">
+                    <option value="">全部</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if department_filter == dept.id|stringformat:"i" %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group me-3 mb-3">
+                <label class="form-label">角色</label>
+                <select class="form-control" name="role">
+                    <option value="">全部</option>
+                    {% for role_value, role_name in roles %}
+                        <option value="{{ role_value }}" {% if role_filter == role_value %}selected{% endif %}>{{ role_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group me-3 mb-3">
+                <label class="form-label">状态</label>
+                <select class="form-control" name="status">
+                    <option value="">全部</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>在职</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>离职</option>
+                </select>
+            </div>
+            <div class="form-group mb-3">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-flex">
+                    <button class="btn btn-primary me-2" type="submit">
+                        <i class="fas fa-search me-1"></i>搜索
+                    </button>
+                    <a href="{% url 'users:user_list' %}" class="btn btn-default">
+                        <i class="fas fa-redo me-1"></i>重置
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 用户列表 -->
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>工号</th>
+                    <th>姓名</th>
+                    <th>用户名</th>
+                    <th>部门</th>
+                    <th>角色</th>
+                    <th>邮箱</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in page_obj %}
+                <tr>
+                    <td>{{ user.employee_id }}</td>
+                    <td>{{ user.get_full_name|default:user.username }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.department.name|default:'-' }}</td>
+                    <td>
+                        {% for role_value, role_name in roles %}
+                            {% if role_value == user.role %}
+                                {{ role_name }}
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>{{ user.email|default:'-' }}</td>
+                    <td>
+                        {% if user.is_active %}
+                            <span class="tag tag-success">在职</span>
+                        {% else %}
+                            <span class="tag tag-error">离职</span>
+                        {% endif %}
+                    </td>
+                    <td class="table-actions">
+                        <a href="{% url 'users:user_detail' user.id %}" class="table-action" title="查看">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'users:user_edit' user.id %}" class="table-action" title="编辑">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if not user.is_staff or user != request.user %}
+                        <a href="{% url 'users:user_delete' user.id %}" class="table-action delete" title="删除">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                        {% endif %}
+                        {% if user.is_active %}
+                        <a href="{% url 'users:toggle_user_status' user.id %}" class="table-action" title="禁用" 
+                           onclick="return confirm('确定要禁用此用户吗？')">
+                            <i class="fas fa-user-lock"></i>
+                        </a>
+                        {% else %}
+                        <a href="{% url 'users:toggle_user_status' user.id %}" class="table-action" title="激活" 
+                           onclick="return confirm('确定要激活此用户吗？')">
+                            <i class="fas fa-user-check"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center">暂无用户数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页 -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        <div class="pagination-info">
+            显示第 {{ page_obj.start_index }} 至 {{ page_obj.end_index }} 项，共 {{ page_obj.paginator.count }} 项
+        </div>
+        <div class="pagination-controls">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if department_filter %}&department={{ department_filter }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="pagination-btn">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if department_filter %}&department={{ department_filter }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="pagination-btn">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="pagination-btn active">{{ num }}</span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if department_filter %}&department={{ department_filter }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="pagination-btn">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if department_filter %}&department={{ department_filter }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="pagination-btn">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if department_filter %}&department={{ department_filter }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="pagination-btn">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #1890ff;
+        --primary-dark: #0c7dda;
+        --primary-light: #e6f7ff;
+        --success-color: #52c41a;
+        --success-dark: #389e0d;
+        --success-light: #f6ffed;
+        --warning-color: #fa8c16;
+        --warning-dark: #d46b08;
+        --warning-light: #fff7e6;
+        --error-color: #ff4d4f;
+        --error-dark: #cf1322;
+        --error-light: #fff2f0;
+        --bg-color: #f0f2f5;
+        --text-color: #262626;
+        --text-secondary: #595959;
+        --border-color: #d9d9d9;
+        --border-light: #f0f0f0;
+    }
+    
+    body {
+        font-family: 'Microsoft YaHei', Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+    }
+    
+    .content {
+        padding: 24px;
+        flex: 1;
+    }
+    
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    
+    .page-title {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 0;
+        color: var(--text-color);
+        position: relative;
+        padding-bottom: 10px;
+    }
+    
+    .page-title::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 40px;
+        height: 3px;
+        background-color: var(--primary-color);
+        border-radius: 2px;
+    }
+    
+    .btn {
+        display: inline-block;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-primary {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-primary:hover {
+        background-color: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-primary:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+    
+    .btn-default {
+        background-color: white;
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        font-weight: 500;
+    }
+    
+    .btn-default:hover {
+        background-color: var(--primary-light);
+        color: var(--primary-color);
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .btn-default:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+    }
+    
+    .btn-danger {
+        background-color: var(--error-color);
+        color: white;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-danger:hover {
+        background-color: var(--error-dark);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-danger:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    }
+    
+    .search-form {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 24px;
+    }
+    
+    .form-group {
+        display: inline-block;
+        margin-right: 15px;
+        vertical-align: top;
+    }
+    
+    .search-buttons {
+        display: inline-block;
+        vertical-align: top;
+    }
+    
+    .search-buttons .btn {
+        margin-top: 24px;
+        margin-right: 10px;
+    }
+    
+    .form-label {
+        font-size: 14px;
+        margin-bottom: 4px;
+        color: var(--text-color);
+        display: block;
+    }
+    
+    .form-control {
+        padding: 10px 12px;
+        border: 2px solid var(--border-color);
+        border-radius: 6px;
+        font-size: 14px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background-color: #fff;
+        color: var(--text-color);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        min-width: 120px;
+    }
+    
+    .form-control:focus {
+        border-color: var(--primary-color);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.25);
+    }
+    
+    .form-control::placeholder {
+        color: var(--text-secondary);
+    }
+    
+    .table-container {
+        background-color: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        background-color: var(--primary-light);
+        padding: 18px 24px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid var(--primary-color);
+        color: var(--text-color);
+        font-size: 15px;
+    }
+    
+    .table td {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border-light);
+    }
+    
+    .table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .table tr:hover {
+        background-color: rgba(24, 144, 255, 0.05);
+        transform: scale(1.005);
+        transition: all 0.3s ease;
+    }
+    
+    .table tr:nth-child(even) {
+        background-color: #fafafa;
+    }
+    
+    .table-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .table-action {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-size: 14px;
+    }
+    
+    .table-action:hover {
+        text-decoration: underline;
+    }
+    
+    .table-action.delete {
+        color: var(--error-color);
+    }
+    
+    .pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px;
+        border-top: 1px solid var(--border-color);
+    }
+    
+    .pagination-info {
+        color: #666;
+        font-size: 14px;
+    }
+    
+    .pagination-controls {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .pagination-btn {
+        padding: 8px 16px;
+        border: 1px solid var(--border-color);
+        background-color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        min-width: 40px;
+        text-align: center;
+    }
+    
+    .pagination-btn:hover {
+        color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    .pagination-btn.active {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+    
+    .pagination-btn:disabled {
+        color: #ccc;
+        cursor: not-allowed;
+    }
+    
+    .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        margin-right: 8px;
+    }
+    
+    .tag-primary {
+        background-color: rgba(24, 144, 255, 0.1);
+        color: var(--primary-color);
+    }
+    
+    .tag-success {
+        background-color: rgba(82, 196, 26, 0.1);
+        color: var(--success-color);
+    }
+    
+    .tag-warning {
+        background-color: rgba(250, 140, 22, 0.1);
+        color: var(--warning-color);
+    }
+    
+    .tag-error {
+        background-color: rgba(255, 77, 79, 0.1);
+        color: var(--error-color);
+    }
+    
+    .alert {
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    
+    .alert-error {
+        background-color: #fff2f0;
+        border: 1px solid #ffccc7;
+        color: #ff4d4f;
+    }
+    
+    .alert-success {
+        background-color: #f6ffed;
+        border: 1px solid #b7eb8f;
+        color: #52c41a;
+    }
+    
+    @media (max-width: 768px) {
+        .form-group {
+            display: block;
+            margin-right: 0;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        
+        .form-control {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,360 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ tooling.name }} - 工装详情{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge {
+        font-size: 0.9rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .status-available { background-color: #d4edda; color: #155724; }
+    .status-in_use { background-color: #cce5ff; color: #004085; }
+    .status-maintenance { background-color: #fff3cd; color: #856404; }
+    .status-repair { background-color: #f8d7da; color: #721c24; }
+    .status-retired { background-color: #e2e3e5; color: #383d41; }
+
+    .info-label {
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+
+    .detail-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 1.5rem;
+        background: white;
+    }
+    
+    .detail-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .detail-card .card-header h5 {
+        margin-bottom: 0;
+        font-weight: 600;
+    }
+    
+    .detail-card .card-body {
+        padding: 1.5rem;
+    }
+
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #4e73df;
+    }
+    
+    .stat-label {
+        color: #858796;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 头部导航和操作 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tooling:list' %}">工装管理</a></li>
+                    <li class="breadcrumb-item active">{{ tooling.name }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                {{ tooling.name }}
+                <span class="status-badge status-{{ tooling.status }} ms-2 align-middle">
+                    {{ tooling.get_status_display }}
+                </span>
+            </h1>
+        </div>
+        <div>
+            <a href="{% url 'tooling:edit' tooling.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit me-1"></i> 编辑
+            </a>
+            <button type="button" class="btn btn-outline-danger ms-2" onclick="deleteTooling()">
+                <i class="fas fa-trash me-1"></i> 删除
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：主要信息 -->
+        <div class="col-lg-8">
+            <!-- 基本信息 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle me-2"></i>基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-label">工装编号</div>
+                            <div class="info-value">{{ tooling.tooling_id }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">工装名称</div>
+                            <div class="info-value">{{ tooling.name }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">工装类型</div>
+                            <div class="info-value">{{ tooling.type }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">规格型号</div>
+                            <div class="info-value">{{ tooling.model }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">制造商</div>
+                            <div class="info-value">{{ tooling.manufacturer }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">存放位置</div>
+                            <div class="info-value">{{ tooling.location }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">负责人</div>
+                            <div class="info-value">
+                                {% if tooling.responsible_person %}
+                                    {{ tooling.responsible_person.get_full_name|default:tooling.responsible_person.username }}
+                                {% else %}
+                                    <span class="text-muted">未分配</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">采购日期</div>
+                            <div class="info-value">{{ tooling.purchase_date|date:"Y-m-d"|default:"--" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 技术参数 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5><i class="fas fa-cogs me-2"></i>技术参数</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-label">材质</div>
+                            <div class="info-value">{{ tooling.material|default:"--" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">尺寸规格</div>
+                            <div class="info-value">{{ tooling.dimensions|default:"--" }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">重量</div>
+                            <div class="info-value">{% if tooling.weight %}{{ tooling.weight }} kg{% else %}--{% endif %}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">最大载荷</div>
+                            <div class="info-value">{% if tooling.max_load %}{{ tooling.max_load }} N{% else %}--{% endif %}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-label">工作温度范围</div>
+                            <div class="info-value">
+                                {% if tooling.operating_temperature_min or tooling.operating_temperature_max %}
+                                    {{ tooling.operating_temperature_min|default:"--" }}°C ~ {{ tooling.operating_temperature_max|default:"--" }}°C
+                                {% else %}
+                                    --
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="info-label">技术规格说明</div>
+                            <div class="info-value">{{ tooling.specifications|linebreaks|default:"暂无说明" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 最近使用记录 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history me-2"></i>最近使用记录</h5>
+                    <a href="{% url 'tooling:usage_record_list' %}?tooling={{ tooling.id }}" class="btn btn-sm btn-outline-primary">查看全部</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>使用人</th>
+                                    <th>开始时间</th>
+                                    <th>时长</th>
+                                    <th>目的</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in recent_usage %}
+                                <tr>
+                                    <td>{{ record.user.get_full_name|default:record.user.username }}</td>
+                                    <td>{{ record.start_time|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ record.duration_hours|default:"--" }} 小时</td>
+                                    <td>{{ record.usage_purpose }}</td>
+                                    <td>{{ record.get_tooling_condition_display }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">暂无使用记录</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：统计与维护 -->
+        <div class="col-lg-4">
+            <!-- 统计信息 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-pie me-2"></i>使用统计</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-value">{{ usage_stats.total_usage }}</div>
+                                <div class="stat-label">总使用次数</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-value">{{ usage_stats.total_duration|floatformat:1 }}</div>
+                                <div class="stat-label">总使用时长(h)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 维护信息 -->
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5><i class="fas fa-wrench me-2"></i>维护信息</h5>
+                    {% if tooling.is_maintenance_due %}
+                        <span class="badge bg-danger">需要维护</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="info-label">上次维护日期</div>
+                    <div class="info-value">{{ tooling.last_maintenance_date|date:"Y-m-d"|default:"从未维护" }}</div>
+                    
+                    <div class="info-label">下次维护日期</div>
+                    <div class="info-value">
+                        {{ tooling.next_maintenance_date|date:"Y-m-d"|default:"--" }}
+                        {% if tooling.is_maintenance_due %}
+                            <small class="text-danger ms-2"><i class="fas fa-exclamation-circle"></i> 已过期</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="info-label">维护间隔</div>
+                    <div class="info-value">{{ tooling.maintenance_interval }} 天</div>
+                    
+                    <hr>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0 text-muted">最近维护</h6>
+                        <a href="{% url 'tooling:maintenance_record_list' %}?tooling={{ tooling.id }}" class="text-decoration-none small">查看全部</a>
+                    </div>
+                    
+                    {% for record in recent_maintenance %}
+                    <div class="mb-2 pb-2 border-bottom">
+                        <div class="d-flex justify-content-between">
+                            <small class="fw-bold">{{ record.get_maintenance_type_display }}</small>
+                            <small class="text-muted">{{ record.maintenance_date|date:"Y-m-d" }}</small>
+                        </div>
+                        <small class="text-muted d-block text-truncate">{{ record.maintenance_content }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small text-center">暂无维护记录</p>
+                    {% endfor %}
+                    
+                    <div class="mt-3">
+                        <a href="{% url 'tooling:maintenance_record_create' %}?tooling={{ tooling.id }}" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="fas fa-plus me-1"></i> 添加维护记录
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 备注信息 -->
+            {% if tooling.remarks %}
+            <div class="card detail-card">
+                <div class="card-header">
+                    <h5><i class="fas fa-sticky-note me-2"></i>备注信息</h5>
+                </div>
+                <div class="card-body">
+                    {{ tooling.remarks|linebreaks }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除工装 <strong id="toolingName">{{ tooling.name }}</strong> 吗？</p>
+                <p class="text-danger">此操作不可撤销！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="post" action="{% url 'tooling:delete' tooling.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteTooling() {
+    $('#deleteModal').modal('show');
+}
+</script>
+{% endblock %}

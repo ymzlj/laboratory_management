@@ -1,0 +1,522 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}工装维护记录{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-form {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .table-container {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .maintenance-type-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    .type-routine {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .type-preventive {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .type-corrective {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .type-calibration {
+        background-color: #e2e3e5;
+        color: #383d41;
+    }
+    
+    .result-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    .result-completed {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .result-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .result-failed {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .btn-action {
+        padding: 4px 8px;
+        margin: 2px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    
+    .filter-tags {
+        margin-bottom: 15px;
+    }
+    
+    .filter-tag {
+        display: inline-block;
+        background: #e9ecef;
+        color: #495057;
+        padding: 4px 12px;
+        border-radius: 15px;
+        margin: 2px;
+        font-size: 0.8rem;
+    }
+    
+    .filter-tag .remove {
+        margin-left: 5px;
+        cursor: pointer;
+        color: #dc3545;
+    }
+    
+    .cost-badge {
+        background: #fff3e0;
+        color: #f57c00;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+    
+    .calibration-info {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .overdue-warning {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .stats-cards {
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        text-align: center;
+        border-left: 4px solid #007bff;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #007bff;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">工装维护记录</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tooling:index' %}">工装管理</a></li>
+                    <li class="breadcrumb-item active">维护记录</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'tooling:maintenance_record_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 新增维护记录
+            </a>
+            <a href="#" class="btn btn-outline-secondary" onclick="exportCSV()">
+                <i class="fas fa-download"></i> 导出CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-cards">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value">{{ total_records }}</div>
+                    <div class="stat-label">总维护记录</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card" style="border-left-color: #28a745;">
+                    <div class="stat-value" style="color: #28a745;">{{ completed_records }}</div>
+                    <div class="stat-label">已完成维护</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card" style="border-left-color: #ffc107;">
+                    <div class="stat-value" style="color: #ffc107;">{{ pending_records }}</div>
+                    <div class="stat-label">待完成维护</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card" style="border-left-color: #dc3545;">
+                    <div class="stat-value" style="color: #dc3545;">{{ overdue_calibrations }}</div>
+                    <div class="stat-label">校准过期</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 搜索筛选表单 -->
+    <div class="search-form">
+        <form method="get" id="searchForm">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="search">关键词</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               value="{{ request.GET.search }}" placeholder="工装名称、维护人员、维护内容">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="tooling">工装</label>
+                        <select class="form-control" id="tooling" name="tooling">
+                            <option value="">全部工装</option>
+                            {% for tooling in toolings %}
+                            <option value="{{ tooling.id }}" {% if request.GET.tooling == tooling.id|stringformat:"s" %}selected{% endif %}>
+                                {{ tooling.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="maintenance_type">维护类型</label>
+                        <select class="form-control" id="maintenance_type" name="maintenance_type">
+                            <option value="">全部类型</option>
+                            <option value="routine" {% if request.GET.maintenance_type == 'routine' %}selected{% endif %}>例行维护</option>
+                            <option value="preventive" {% if request.GET.maintenance_type == 'preventive' %}selected{% endif %}>预防性维护</option>
+                            <option value="corrective" {% if request.GET.maintenance_type == 'corrective' %}selected{% endif %}>纠正性维护</option>
+                            <option value="calibration" {% if request.GET.maintenance_type == 'calibration' %}selected{% endif %}>校准</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="maintenance_result">维护结果</label>
+                        <select class="form-control" id="maintenance_result" name="maintenance_result">
+                            <option value="">全部结果</option>
+                            <option value="completed" {% if request.GET.maintenance_result == 'completed' %}selected{% endif %}>完成</option>
+                            <option value="pending" {% if request.GET.maintenance_result == 'pending' %}selected{% endif %}>待完成</option>
+                            <option value="failed" {% if request.GET.maintenance_result == 'failed' %}selected{% endif %}>失败</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="maintainer">维护人员</label>
+                        <select class="form-control" id="maintainer" name="maintainer">
+                            <option value="">全部人员</option>
+                            {% for user in maintainers %}
+                            <option value="{{ user.id }}" {% if request.GET.maintainer == user.id|stringformat:"s" %}selected{% endif %}>
+                                {{ user.get_full_name|default:user.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-1">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <div>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="start_date">开始日期</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" 
+                               value="{{ request.GET.start_date }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="end_date">结束日期</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" 
+                               value="{{ request.GET.end_date }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="calibration_overdue" name="calibration_overdue" 
+                               {% if request.GET.calibration_overdue %}checked{% endif %}>
+                        <label class="form-check-label" for="calibration_overdue">
+                            仅显示校准过期
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-3 text-right">
+                    <div class="mt-4">
+                        <a href="{% url 'tooling:maintenance_record_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> 清除筛选
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 筛选标签 -->
+    {% if request.GET %}
+    <div class="filter-tags">
+        {% if request.GET.search %}
+        <span class="filter-tag">
+            关键词: {{ request.GET.search }}
+            <span class="remove" onclick="removeFilter('search')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.tooling %}
+        <span class="filter-tag">
+            工装: {{ request.GET.tooling }}
+            <span class="remove" onclick="removeFilter('tooling')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.maintenance_type %}
+        <span class="filter-tag">
+            类型: {{ request.GET.maintenance_type }}
+            <span class="remove" onclick="removeFilter('maintenance_type')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.maintenance_result %}
+        <span class="filter-tag">
+            结果: {{ request.GET.maintenance_result }}
+            <span class="remove" onclick="removeFilter('maintenance_result')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.maintainer %}
+        <span class="filter-tag">
+            维护人: {{ request.GET.maintainer }}
+            <span class="remove" onclick="removeFilter('maintainer')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.start_date %}
+        <span class="filter-tag">
+            开始日期: {{ request.GET.start_date }}
+            <span class="remove" onclick="removeFilter('start_date')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.end_date %}
+        <span class="filter-tag">
+            结束日期: {{ request.GET.end_date }}
+            <span class="remove" onclick="removeFilter('end_date')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.calibration_overdue %}
+        <span class="filter-tag">
+            校准过期
+            <span class="remove" onclick="removeFilter('calibration_overdue')">&times;</span>
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 维护记录列表 -->
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="thead-light">
+                    <tr>
+                        <th>工装</th>
+                        <th>维护类型</th>
+                        <th>维护日期</th>
+                        <th>维护人员</th>
+                        <th>维护内容</th>
+                        <th>维护费用</th>
+                        <th>维护结果</th>
+                        <th>校准信息</th>
+                        <th width="120">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in maintenance_records %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'tooling:detail' record.tooling.id %}" class="text-decoration-none">
+                                {{ record.tooling.name }}
+                            </a>
+                            <small class="text-muted d-block">{{ record.tooling.tooling_id }}</small>
+                        </td>
+                        <td>
+                            <span class="maintenance-type-badge type-{{ record.maintenance_type }}">
+                                {{ record.get_maintenance_type_display }}
+                            </span>
+                        </td>
+                        <td>{{ record.maintenance_date|date:"Y-m-d" }}</td>
+                        <td>{{ record.maintainer.get_full_name|default:record.maintainer.username }}</td>
+                        <td>{{ record.maintenance_content|truncatechars:30 }}</td>
+                        <td>
+                            {% if record.maintenance_cost %}
+                                <span class="cost-badge">¥{{ record.maintenance_cost }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="result-badge result-{{ record.maintenance_result }}">
+                                {{ record.get_maintenance_result_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if record.maintenance_type == 'calibration' %}
+                                {% if record.calibration_due_date %}
+                                    <div class="calibration-info">
+                                        到期：{{ record.calibration_due_date|date:"Y-m-d" }}
+                                        {% if record.calibration_due_date|date:"Y-m-d" < today|date:"Y-m-d" %}
+                                            <br><span class="overdue-warning">已过期</span>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'tooling:maintenance_record_detail' record.id %}" class="btn btn-info btn-action" 
+                               data-toggle="tooltip" title="查看详情">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'tooling:maintenance_record_edit' record.id %}" class="btn btn-warning btn-action"
+                               data-toggle="tooltip" title="编辑">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <div>暂无维护记录</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分页 -->
+        {% if is_paginated %}
+        <nav aria-label="维护记录分页">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">上一页</a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">下一页</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 初始化工具提示
+    $('[data-toggle="tooltip"]').tooltip();
+    
+    // 实时搜索
+    let searchTimeout;
+    $('#search').on('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            $('#searchForm').submit();
+        }, 500);
+    });
+    
+    // 日期字段设置
+    const today = new Date().toISOString().split('T')[0];
+    $('#start_date, #end_date').attr('max', today);
+    
+    // 开始日期变化时，设置结束日期的最小值
+    $('#start_date').on('change', function() {
+        $('#end_date').attr('min', $(this).val());
+    });
+    
+    // 结束日期变化时，设置开始日期的最大值
+    $('#end_date').on('change', function() {
+        $('#start_date').attr('max', $(this).val());
+    });
+});
+
+// 移除筛选条件
+function removeFilter(filterName) {
+    const url = new URL(window.location);
+    url.searchParams.delete(filterName);
+    window.location.href = url.toString();
+}
+
+// 导出CSV
+function exportCSV() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'csv');
+    window.location.href = '{% url "tooling:maintenance_record_list" %}?' + params.toString();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,489 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - 试验室管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+    }
+    
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-section h5 {
+        color: #495057;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .required-field label::after {
+        content: " *";
+        color: #dc3545;
+    }
+    
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .btn-group-custom {
+        gap: 0.5rem;
+    }
+    
+    .file-upload-info {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .alert-validation {
+        border-left: 4px solid #dc3545;
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">{{ title }}</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:index' %}">设备管理</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:list' %}">设备列表</a></li>
+                    {% if action == 'edit' %}
+                        <li class="breadcrumb-item"><a href="{% url 'equipment:detail' equipment.pk %}">{{ equipment.name }}</a></li>
+                    {% endif %}
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 表单验证错误 -->
+    {% if form.non_field_errors %}
+        <div class="alert alert-validation alert-dismissible fade show" role="alert">
+            <h6 class="alert-heading">
+                <i class="fas fa-exclamation-triangle"></i> 表单验证错误
+            </h6>
+            {% for error in form.non_field_errors %}
+                <p class="mb-0">{{ error }}</p>
+            {% endfor %}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endif %}
+
+    <!-- 设备表单 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card form-card">
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="equipmentForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- 基本信息 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-info-circle"></i> 基本信息</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.equipment_id.label_tag }}
+                                    {{ form.equipment_id }}
+                                    {% if form.equipment_id.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.equipment_id.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">设备的唯一标识编号</div>
+                                </div>
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.name.label_tag }}
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.name.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.model.label_tag }}
+                                    {{ form.model }}
+                                    {% if form.model.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.model.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.manufacturer.label_tag }}
+                                    {{ form.manufacturer }}
+                                    {% if form.manufacturer.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.manufacturer.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.serial_number.label_tag }}
+                                    {{ form.serial_number }}
+                                    {% if form.serial_number.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.serial_number.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">设备的序列号，必须唯一</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.status.label_tag }}
+                                    {{ form.status }}
+                                    {% if form.status.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.status.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 采购信息 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-shopping-cart"></i> 采购信息</h5>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    {{ form.purchase_date.label_tag }}
+                                    {{ form.purchase_date }}
+                                    {% if form.purchase_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.purchase_date.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    {{ form.purchase_price.label_tag }}
+                                    <div class="input-group">
+                                        <span class="input-group-text">¥</span>
+                                        {{ form.purchase_price }}
+                                    </div>
+                                    {% if form.purchase_price.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.purchase_price.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    {{ form.warranty_period.label_tag }}
+                                    <div class="input-group">
+                                        {{ form.warranty_period }}
+                                        <span class="input-group-text">月</span>
+                                    </div>
+                                    {% if form.warranty_period.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.warranty_period.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ form.warranty_end_date.label_tag }}
+                                    {{ form.warranty_end_date }}
+                                    {% if form.warranty_end_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.warranty_end_date.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 位置和负责人 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-map-marker-alt"></i> 位置和负责人</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3 required-field">
+                                    {{ form.location.label_tag }}
+                                    {{ form.location }}
+                                    {% if form.location.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.location.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">设备的存放位置</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.responsible_person.label_tag }}
+                                    {{ form.responsible_person }}
+                                    {% if form.responsible_person.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.responsible_person.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 技术规格 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-cogs"></i> 技术规格</h5>
+                            <div class="row">
+                                <div class="col-12 mb-3 required-field">
+                                    {{ form.specifications.label_tag }}
+                                    {{ form.specifications }}
+                                    {% if form.specifications.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.specifications.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">详细的技术参数和规格说明</div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ form.operating_manual.label_tag }}
+                                    {{ form.operating_manual }}
+                                    {% if form.operating_manual.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.operating_manual.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="file-upload-info">
+                                        支持PDF、DOC、DOCX格式，最大10MB
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 维护信息 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-wrench"></i> 设备校验信息</h5>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    {{ form.last_maintenance_date.label_tag }}
+                                    {{ form.last_maintenance_date }}
+                                    {% if form.last_maintenance_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.last_maintenance_date.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    {{ form.next_maintenance_date.label_tag }}
+                                    {{ form.next_maintenance_date }}
+                                    {% if form.next_maintenance_date.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.next_maintenance_date.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    {{ form.maintenance_interval.label_tag }}
+                                    <div class="input-group">
+                                        {{ form.maintenance_interval }}
+                                        <span class="input-group-text">天</span>
+                                    </div>
+                                    {% if form.maintenance_interval.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.maintenance_interval.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 备注 -->
+                        <div class="form-section">
+                            <h5><i class="fas fa-sticky-note"></i> 备注</h5>
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    {{ form.remarks.label_tag }}
+                                    {{ form.remarks }}
+                                    {% if form.remarks.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.remarks.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div class="d-flex justify-content-between">
+                            <div class="btn-group-custom d-flex">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> 保存
+                                </button>
+                                <a href="{% if action == 'edit' %}{% url 'equipment:detail' equipment.pk %}{% else %}{% url 'equipment:list' %}{% endif %}" 
+                                   class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> 取消
+                                </a>
+                            </div>
+                            
+                            {% if action == 'edit' %}
+                            <button type="button" class="btn btn-outline-danger" onclick="deleteEquipment()">
+                                <i class="fas fa-trash"></i> 删除设备
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+{% if action == 'edit' %}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除设备 <strong>{{ equipment.name }}</strong> 吗？</p>
+                <p class="text-danger">此操作不可撤销，相关的使用记录和维护记录也将被删除！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="post" action="{% url 'equipment:delete' equipment.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 表单验证
+    $('#equipmentForm').on('submit', function(e) {
+        let isValid = true;
+        
+        // 清除之前的验证状态
+        $('.form-control, .form-select').removeClass('is-invalid');
+        
+        // 验证必填字段
+        $('input[required], select[required], textarea[required]').each(function() {
+            if (!$(this).val().trim()) {
+                $(this).addClass('is-invalid');
+                isValid = false;
+            }
+        });
+        
+        // 验证设备编号格式
+        const equipmentId = $('#id_equipment_id').val();
+        if (equipmentId && !/^[A-Z0-9-]+$/.test(equipmentId)) {
+            $('#id_equipment_id').addClass('is-invalid');
+            isValid = false;
+        }
+        
+        // 验证价格
+        const price = $('#id_purchase_price').val();
+        if (price && (isNaN(price) || parseFloat(price) <= 0)) {
+            $('#id_purchase_price').addClass('is-invalid');
+            isValid = false;
+        }
+        
+        // 验证保修期
+        const warrantyPeriod = $('#id_warranty_period').val();
+        if (warrantyPeriod && (isNaN(warrantyPeriod) || parseInt(warrantyPeriod) <= 0)) {
+            $('#id_warranty_period').addClass('is-invalid');
+            isValid = false;
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            $('html, body').animate({
+                scrollTop: $('.is-invalid').first().offset().top - 100
+            }, 500);
+        }
+    });
+    
+    // 实时验证
+    $('#id_equipment_id').on('input', function() {
+        const value = $(this).val().toUpperCase();
+        $(this).val(value);
+        
+        if (value && !/^[A-Z0-9-]+$/.test(value)) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    // 价格验证
+    $('#id_purchase_price').on('input', function() {
+        const value = $(this).val();
+        if (value && (isNaN(value) || parseFloat(value) <= 0)) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    // 保修期验证
+    $('#id_warranty_period').on('input', function() {
+        const value = $(this).val();
+        if (value && (isNaN(value) || parseInt(value) <= 0)) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    // 根据采购日期和保修期自动计算保修到期日期
+    $('#id_purchase_date, #id_warranty_period').on('change', function() {
+        const purchaseDate = $('#id_purchase_date').val();
+        const warrantyPeriod = $('#id_warranty_period').val();
+        
+        if (purchaseDate && warrantyPeriod) {
+            const date = new Date(purchaseDate);
+            date.setMonth(date.getMonth() + parseInt(warrantyPeriod));
+            
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            
+            $('#id_warranty_end_date').val(`${year}-${month}-${day}`);
+        }
+    });
+    
+    // 设置默认日期
+    if (!$('#id_purchase_date').val()) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        $('#id_purchase_date').val(`${year}-${month}-${day}`);
+    }
+});
+
+{% if action == 'edit' %}
+function deleteEquipment() {
+    $('#deleteModal').modal('show');
+}
+{% endif %}
+</script>
+{% endblock %}

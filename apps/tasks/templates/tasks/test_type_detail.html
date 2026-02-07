@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ test_type.name }} - 试验类型详情{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-vial me-2"></i>试验类型详情</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'index' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tasks:test_type_list' %}">试验类型管理</a></li>
+                    <li class="breadcrumb-item active">{{ test_type.name }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 基本信息 -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="text-muted mb-1">类型名称</label>
+                            <p class="fs-5 fw-bold mb-0">{{ test_type.name }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted mb-1">类型代码</label>
+                            <p class="mb-0"><code class="fs-6">{{ test_type.code }}</code></p>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="text-muted mb-1">关联任务数</label>
+                            <p class="mb-0">
+                                <span class="badge bg-info fs-6">{{ task_count }} 个任务</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="text-muted mb-1">类型描述</label>
+                            <p class="mb-0">{{ test_type.description|default:"暂无描述" }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="text-muted mb-1">创建时间</label>
+                            <p class="mb-0">
+                                <i class="fas fa-calendar-plus me-2"></i>
+                                {{ test_type.created_at|date:"Y年m月d日 H:i" }}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted mb-1">最后更新</label>
+                            <p class="mb-0">
+                                <i class="fas fa-calendar-check me-2"></i>
+                                {{ test_type.updated_at|date:"Y年m月d日 H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'tasks:test_type_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>返回列表
+                        </a>
+                        <div>
+                            <a href="{% url 'tasks:test_type_update' test_type.pk %}" class="btn btn-primary me-2">
+                                <i class="fas fa-edit me-2"></i>编辑
+                            </a>
+                            {% if request.user.role == 'admin' or request.user.role == 'manager' %}
+                                <button type="button" class="btn btn-danger" 
+                                        onclick="deleteTestType({{ test_type.pk }}, '{{ test_type.name }}')">
+                                    <i class="fas fa-trash me-2"></i>删除
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 相关任务列表 -->
+            {% if tasks %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>相关任务（最近10条）</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>任务编号</th>
+                                    <th>任务名称</th>
+                                    <th>优先级</th>
+                                    <th>状态</th>
+                                    <th>负责人</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in tasks %}
+                                <tr>
+                                    <td><code>{{ task.task_number }}</code></td>
+                                    <td>{{ task.task_name }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if task.priority.level == 1 %}danger{% elif task.priority.level == 2 %}warning{% else %}info{% endif %}">
+                                            {{ task.priority.name }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if task.status.code == 'completed' %}success{% elif task.status.code == 'in_progress' %}primary{% else %}secondary{% endif %}">
+                                            {{ task.status.name }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if task.assignee %}
+                                            {{ task.assignee.get_full_name|default:task.assignee.username }}
+                                        {% else %}
+                                            <span class="text-muted">未分配</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ task.created_at|date:"Y-m-d" }}</td>
+                                    <td>
+                                        <a href="{% url 'tasks:task_detail' task.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if task_count > 10 %}
+                        <div class="text-center mt-3">
+                            <a href="{% url 'tasks:task_list' %}?test_type={{ test_type.pk }}" class="btn btn-sm btn-outline-primary">
+                                查看全部 {{ task_count }} 个任务 <i class="fas fa-arrow-right ms-2"></i>
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>统计信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="display-4 text-primary mb-2">{{ task_count }}</div>
+                        <p class="text-muted mb-0">关联任务总数</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 字段配置管理 -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>字段配置</h5>
+                    {% if request.user.role == 'admin' or request.user.role == 'manager' %}
+                        <a href="{% url 'tasks:test_type_field_create' test_type.pk %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus me-1"></i>添加字段
+                        </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if custom_fields %}
+                        <div class="list-group list-group-flush">
+                            {% for field in custom_fields %}
+                            <div class="list-group-item px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">
+                                            {{ field.field_name }}
+                                            {% if not field.is_active %}
+                                                <span class="badge bg-secondary badge-sm">已禁用</span>
+                                            {% endif %}
+                                            {% if field.is_required %}
+                                                <span class="badge bg-danger badge-sm">*必填</span>
+                                            {% endif %}
+                                            {% if field.is_batch_input_enabled %}
+                                                <span class="badge bg-info text-dark badge-sm" title="出现在批量录入表格中">批量</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark border badge-sm" title="仅在详情页单独显示">参数</span>
+                                            {% endif %}
+                                        </h6>
+                                        <p class="mb-1 text-muted small">
+                                            <code>{{ field.field_code }}</code> - 
+                                            <span class="badge bg-secondary">{{ field.get_field_type_display }}</span>
+                                        </p>
+                                        {% if field.help_text %}
+                                            <p class="mb-0 text-muted small">
+                                                <i class="fas fa-info-circle me-1"></i>{{ field.help_text }}
+                                            </p>
+                                        {% endif %}
+                                    </div>
+                                    {% if request.user.role == 'admin' or request.user.role == 'manager' %}
+                                        <div class="ms-2">
+                                            <a href="{% url 'tasks:test_type_field_edit' field.pk %}" 
+                                               class="btn btn-sm btn-outline-primary me-1"
+                                               title="编辑">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    onclick="deleteField({{ field.pk }}, '{{ field.field_name }}')"
+                                                    title="删除">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- 分页控件 -->
+                        {% if custom_fields.has_other_pages %}
+                        <nav aria-label="字段配置分页" class="mt-3">
+                            <ul class="pagination justify-content-center mb-0">
+                                <!-- 上一页 -->
+                                {% if custom_fields.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?field_page={{ custom_fields.previous_page_number }}" aria-label="上一页">
+                                            <span aria-hidden="true">&laquo;</span>
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">&laquo;</span>
+                                    </li>
+                                {% endif %}
+                                
+                                <!-- 页码 -->
+                                {% for num in custom_fields.paginator.page_range %}
+                                    {% if custom_fields.number == num %}
+                                        <li class="page-item active" aria-current="page">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?field_page={{ num }}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                <!-- 下一页 -->
+                                {% if custom_fields.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?field_page={{ custom_fields.next_page_number }}" aria-label="下一页">
+                                            <span aria-hidden="true">&raquo;</span>
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">&raquo;</span>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted mb-0 text-center py-3">
+                            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                            暂无字段配置
+                        </p>
+                        {% if request.user.role == 'admin' or request.user.role == 'manager' %}
+                            <div class="text-center">
+                                <a href="{% url 'tasks:test_type_field_create' test_type.pk %}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus me-1"></i>添加第一个字段
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 删除试验类型
+function deleteTestType(testTypeId, testTypeName) {
+    if (confirm('确定要删除试验类型"' + testTypeName + '"吗？\n\n注意：如果该类型下有任务，将无法删除。')) {
+        fetch(`/tasks/test-types/${testTypeId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.href = '{% url "tasks:test_type_list" %}';
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            alert('删除失败：' + error);
+        });
+    }
+}
+
+// 删除字段配置
+function deleteField(fieldId, fieldName) {
+    if (confirm('确定要删除字段"' + fieldName + '"吗？')) {
+        fetch(`/tasks/test-type-fields/${fieldId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(error => {
+            alert('删除失败：' + error);
+        });
+    }
+}
+</script>
+{% endblock %}

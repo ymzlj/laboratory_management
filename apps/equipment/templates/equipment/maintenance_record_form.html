@@ -1,0 +1,716 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+{% if form.instance.pk %}编辑维护记录{% else %}新增维护记录{% endif %} - 试验室管理系统
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-card .card-header {
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 10px 10px 0 0;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 8px;
+        border: 1px solid #ced4da;
+        padding: 0.75rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    
+    .required-field::after {
+        content: ' *';
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .equipment-info {
+        background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .equipment-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #2196f3, #9c27b0);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+    }
+    
+    .status-badge {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+    }
+    
+    .status-available {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .status-in-use {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .status-maintenance {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .status-retired {
+        background-color: #e2e3e5;
+        color: #383d41;
+        border: 1px solid #d6d8db;
+    }
+    
+    .btn-action {
+        border-radius: 25px;
+        padding: 0.75rem 2rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .error-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .help-text {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .input-group-text {
+        background-color: #f8f9fa;
+        border-color: #ced4da;
+        color: #495057;
+    }
+    
+    .maintenance-type-info {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 0.5rem;
+    }
+    
+    .maintenance-type-info .type-item {
+        margin-bottom: 0.5rem;
+        padding: 0.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .maintenance-type-info .type-item:hover {
+        background-color: #e9ecef;
+    }
+    
+    .maintenance-type-info .type-item.selected {
+        background-color: #cce5ff;
+        border: 1px solid #007bff;
+    }
+    
+    .cost-calculator {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 0.5rem;
+    }
+    
+    .cost-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem;
+        background: white;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .cost-total {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #007bff;
+        border-top: 2px solid #007bff;
+        padding-top: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .datetime-input {
+        position: relative;
+    }
+    
+    .datetime-input .btn-now {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .form-section {
+        border-left: 4px solid #007bff;
+        padding-left: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .section-title {
+        color: #007bff;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                {% if form.instance.pk %}编辑维护记录{% else %}新增维护记录{% endif %}
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:index' %}">设备管理</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'equipment:maintenance_record_list' %}">维护记录</a></li>
+                    <li class="breadcrumb-item active">
+                        {% if form.instance.pk %}编辑记录{% else %}新增记录{% endif %}
+                    </li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- 表单验证错误提示 -->
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <h6 class="alert-heading">
+                <i class="fas fa-exclamation-triangle"></i> 表单验证错误
+            </h6>
+            {% for error in form.non_field_errors %}
+                <p class="mb-0">{{ error }}</p>
+            {% endfor %}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endif %}
+
+    <form method="post" id="maintenanceForm" novalidate>
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- 主要表单内容 -->
+            <div class="col-lg-8">
+                <!-- 选定设备信息 -->
+                {% if form.instance.equipment %}
+                <div class="equipment-info">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <div class="equipment-icon">
+                                <i class="fas fa-desktop"></i>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <h4 class="mb-1">{{ form.instance.equipment.name }}</h4>
+                            <p class="text-muted mb-1">设备编号：{{ form.instance.equipment.equipment_id }}</p>
+                            <p class="text-muted mb-0">型号：{{ form.instance.equipment.model }} | 制造商：{{ form.instance.equipment.manufacturer }}</p>
+                        </div>
+                        <div class="col-auto">
+                            <span class="status-badge status-{{ form.instance.equipment.status }}">
+                                {% if form.instance.equipment.status == 'available' %}
+                                    可用
+                                {% elif form.instance.equipment.status == 'in_use' %}
+                                    使用中
+                                {% elif form.instance.equipment.status == 'maintenance' %}
+                                    维护中
+                                {% elif form.instance.equipment.status == 'retired' %}
+                                    已退役
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 基本信息 -->
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-info-circle"></i> 基本信息
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-section">
+                            <h6 class="section-title">设备和维护人员</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.equipment.id_for_label }}" class="form-label required-field">
+                                            设备
+                                        </label>
+                                        {{ form.equipment }}
+                                        {% if form.equipment.errors %}
+                                            <div class="error-message">{{ form.equipment.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="help-text">选择需要维护的设备</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.maintenance_person.id_for_label }}" class="form-label required-field">
+                                            维护人员
+                                        </label>
+                                        {{ form.maintenance_person }}
+                                        {% if form.maintenance_person.errors %}
+                                            <div class="error-message">{{ form.maintenance_person.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="help-text">负责维护的人员</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h6 class="section-title">维护类型和时间</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.maintenance_type.id_for_label }}" class="form-label required-field">
+                                            维护类型
+                                        </label>
+                                        {{ form.maintenance_type }}
+                                        {% if form.maintenance_type.errors %}
+                                            <div class="error-message">{{ form.maintenance_type.errors.0 }}</div>
+                                        {% endif %}
+                                        
+                                        <!-- 维护类型说明 -->
+                                        <div class="maintenance-type-info">
+                                            <div class="type-item" data-type="preventive">
+                                                <strong>预防性维护</strong> - 定期检查和保养，防止故障发生
+                                            </div>
+                                            <div class="type-item" data-type="corrective">
+                                                <strong>纠正性维护</strong> - 修复已发生的故障或问题
+                                            </div>
+                                            <div class="type-item" data-type="emergency">
+                                                <strong>紧急维护</strong> - 紧急故障修复，恢复设备正常运行
+                                            </div>
+                                            <div class="type-item" data-type="upgrade">
+                                                <strong>升级维护</strong> - 设备升级、改造或功能增强
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ form.maintenance_date.id_for_label }}" class="form-label required-field">
+                                            维护日期
+                                        </label>
+                                        <div class="datetime-input">
+                                            {{ form.maintenance_date }}
+                                            <button type="button" class="btn btn-sm btn-outline-primary btn-now" onclick="setCurrentDateTime('{{ form.maintenance_date.id_for_label }}')">
+                                                当前时间
+                                            </button>
+                                        </div>
+                                        {% if form.maintenance_date.errors %}
+                                            <div class="error-message">{{ form.maintenance_date.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="help-text">维护开始的日期和时间</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 维护详情 -->
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-wrench"></i> 维护详情
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-section">
+                            <h6 class="section-title">维护内容</h6>
+                            <div class="form-group">
+                                <label for="{{ form.maintenance_content.id_for_label }}" class="form-label required-field">
+                                    维护内容
+                                </label>
+                                {{ form.maintenance_content }}
+                                {% if form.maintenance_content.errors %}
+                                    <div class="error-message">{{ form.maintenance_content.errors.0 }}</div>
+                                {% endif %}
+                                <div class="help-text">详细描述本次维护的具体内容和操作</div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h6 class="section-title">更换部件</h6>
+                            <div class="form-group">
+                                <label for="{{ form.replaced_parts.id_for_label }}" class="form-label">
+                                    更换部件
+                                </label>
+                                {{ form.replaced_parts }}
+                                {% if form.replaced_parts.errors %}
+                                    <div class="error-message">{{ form.replaced_parts.errors.0 }}</div>
+                                {% endif %}
+                                <div class="help-text">如有更换部件，请详细列出部件名称、型号、数量等信息</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 维护结果和费用 -->
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-chart-line"></i> 维护结果和费用
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-section">
+                                    <h6 class="section-title">维护费用</h6>
+                                    <div class="form-group">
+                                        <label for="{{ form.maintenance_cost.id_for_label }}" class="form-label">
+                                            维护费用
+                                        </label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">¥</span>
+                                            {{ form.maintenance_cost }}
+                                        </div>
+                                        {% if form.maintenance_cost.errors %}
+                                            <div class="error-message">{{ form.maintenance_cost.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="help-text">包括人工费、材料费、外包费等总费用</div>
+                                    </div>
+
+                                    <!-- 费用计算器 -->
+                                    <div class="cost-calculator">
+                                        <h6>费用计算器</h6>
+                                        <div class="cost-item">
+                                            <span>人工费：</span>
+                                            <input type="number" class="form-control form-control-sm cost-input" 
+                                                   id="laborCost" placeholder="0.00" style="width: 100px;">
+                                        </div>
+                                        <div class="cost-item">
+                                            <span>材料费：</span>
+                                            <input type="number" class="form-control form-control-sm cost-input" 
+                                                   id="materialCost" placeholder="0.00" style="width: 100px;">
+                                        </div>
+                                        <div class="cost-item">
+                                            <span>外包费：</span>
+                                            <input type="number" class="form-control form-control-sm cost-input" 
+                                                   id="outsourceCost" placeholder="0.00" style="width: 100px;">
+                                        </div>
+                                        <div class="cost-item cost-total">
+                                            <span>总计：</span>
+                                            <span id="totalCost">¥0.00</span>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-primary mt-2" onclick="applyCostCalculation()">
+                                            应用到维护费用
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-section">
+                                    <h6 class="section-title">维护结果</h6>
+                                    <div class="form-group">
+                                        <label for="{{ form.maintenance_result.id_for_label }}" class="form-label required-field">
+                                            维护结果
+                                        </label>
+                                        {{ form.maintenance_result }}
+                                        {% if form.maintenance_result.errors %}
+                                            <div class="error-message">{{ form.maintenance_result.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="help-text">维护完成后的结果状态</div>
+                                    </div>
+                                </div>
+
+                                <div class="form-section">
+                                    <h6 class="section-title">下次维护</h6>
+                                    <div class="form-group">
+                                        <label for="{{ form.next_maintenance_date.id_for_label }}" class="form-label">
+                                            下次维护日期
+                                        </label>
+                                        {{ form.next_maintenance_date }}
+                                        {% if form.next_maintenance_date.errors %}
+                                            <div class="error-message">{{ form.next_maintenance_date.errors.0 }}</div>
+                                        {% endif %}
+                                        <div class="help-text">预计下次维护的日期</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 备注 -->
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-sticky-note"></i> 备注信息
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label">
+                                备注
+                            </label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                                <div class="error-message">{{ form.notes.errors.0 }}</div>
+                            {% endif %}
+                            <div class="help-text">其他需要说明的信息</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 侧边栏 -->
+            <div class="col-lg-4">
+                <!-- 操作按钮 -->
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-cogs"></i> 操作
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <button type="submit" class="btn btn-primary btn-action w-100 mb-3">
+                            <i class="fas fa-save"></i> 
+                            {% if form.instance.pk %}更新记录{% else %}保存记录{% endif %}
+                        </button>
+                        <a href="{% url 'equipment:maintenance_record_list' %}" class="btn btn-secondary btn-action w-100">
+                            <i class="fas fa-times"></i> 取消
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 表单提示 -->
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-lightbulb"></i> 填写提示
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2">
+                                <i class="fas fa-check text-success"></i>
+                                <small>标有 <span class="text-danger">*</span> 的字段为必填项</small>
+                            </li>
+                            <li class="mb-2">
+                                <i class="fas fa-check text-success"></i>
+                                <small>维护内容请详细描述具体操作</small>
+                            </li>
+                            <li class="mb-2">
+                                <i class="fas fa-check text-success"></i>
+                                <small>费用可使用计算器辅助计算</small>
+                            </li>
+                            <li class="mb-2">
+                                <i class="fas fa-check text-success"></i>
+                                <small>维护结果影响设备状态更新</small>
+                            </li>
+                            <li>
+                                <i class="fas fa-check text-success"></i>
+                                <small>下次维护日期用于提醒功能</small>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 维护历史 -->
+                {% if form.instance.equipment %}
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-history"></i> 维护历史
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center">
+                            <h5 class="text-primary">{{ form.instance.equipment.maintenance_count }}</h5>
+                            <small class="text-muted">历史维护次数</small>
+                        </div>
+                        <hr>
+                        <div class="text-center">
+                            <a href="{% url 'equipment:maintenance_record_list' %}?equipment={{ form.instance.equipment.id }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                查看历史记录
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 表单验证
+    $('#maintenanceForm').on('submit', function(e) {
+        let isValid = true;
+        
+        // 检查必填字段
+        $('input[required], select[required], textarea[required]').each(function() {
+            if (!$(this).val()) {
+                isValid = false;
+                $(this).addClass('is-invalid');
+            } else {
+                $(this).removeClass('is-invalid');
+            }
+        });
+        
+        // 验证维护费用
+        const cost = $('#{{ form.maintenance_cost.id_for_label }}').val();
+        if (cost && (isNaN(cost) || parseFloat(cost) < 0)) {
+            isValid = false;
+            $('#{{ form.maintenance_cost.id_for_label }}').addClass('is-invalid');
+            alert('维护费用必须是有效的数字且不能为负数');
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert('请检查并填写所有必填字段');
+        }
+    });
+    
+    // 实时验证
+    $('input, select, textarea').on('blur', function() {
+        if ($(this).attr('required') && !$(this).val()) {
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    // 维护类型选择
+    $('.type-item').on('click', function() {
+        const type = $(this).data('type');
+        $('#{{ form.maintenance_type.id_for_label }}').val(type);
+        $('.type-item').removeClass('selected');
+        $(this).addClass('selected');
+    });
+    
+    // 费用计算器
+    $('.cost-input').on('input', function() {
+        calculateTotalCost();
+    });
+    
+    // 设备选择变化时的处理
+    $('#{{ form.equipment.id_for_label }}').on('change', function() {
+        const equipmentId = $(this).val();
+        if (equipmentId) {
+            // 可以在这里添加获取设备信息的AJAX请求
+            console.log('选择设备:', equipmentId);
+        }
+    });
+    
+    // 维护结果变化时的处理
+    $('#{{ form.maintenance_result.id_for_label }}').on('change', function() {
+        const result = $(this).val();
+        if (result === 'completed') {
+            // 维护完成，可以建议下次维护日期
+            suggestNextMaintenanceDate();
+        }
+    });
+});
+
+// 设置当前日期时间
+function setCurrentDateTime(fieldId) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    const datetime = `${year}-${month}-${day}T${hours}:${minutes}`;
+    document.getElementById(fieldId).value = datetime;
+}
+
+// 计算总费用
+function calculateTotalCost() {
+    const laborCost = parseFloat($('#laborCost').val()) || 0;
+    const materialCost = parseFloat($('#materialCost').val()) || 0;
+    const outsourceCost = parseFloat($('#outsourceCost').val()) || 0;
+    
+    const total = laborCost + materialCost + outsourceCost;
+    $('#totalCost').text('¥' + total.toFixed(2));
+}
+
+// 应用费用计算结果
+function applyCostCalculation() {
+    const total = parseFloat($('#totalCost').text().replace('¥', ''));
+    $('#{{ form.maintenance_cost.id_for_label }}').val(total.toFixed(2));
+}
+
+// 建议下次维护日期
+function suggestNextMaintenanceDate() {
+    const maintenanceDate = new Date($('#{{ form.maintenance_date.id_for_label }}').val());
+    if (maintenanceDate) {
+        // 建议3个月后进行下次维护
+        const nextDate = new Date(maintenanceDate);
+        nextDate.setMonth(nextDate.getMonth() + 3);
+        
+        const year = nextDate.getFullYear();
+        const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+        const day = String(nextDate.getDate()).padStart(2, '0');
+        
+        $('#{{ form.next_maintenance_date.id_for_label }}').val(`${year}-${month}-${day}`);
+    }
+}
+</script>
+{% endblock %}

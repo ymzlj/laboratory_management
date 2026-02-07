@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}工装列表 - 试验室管理系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-card {
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-radius: 10px;
+    }
+    
+    .tool-table {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+    }
+    
+    .status-available { background-color: #d4edda; color: #155724; }
+    .status-in_use { background-color: #cce5ff; color: #004085; }
+    .status-maintenance { background-color: #fff3cd; color: #856404; }
+    .status-repair { background-color: #f8d7da; color: #721c24; }
+    .status-retired { background-color: #e2e3e5; color: #383d41; }
+    
+    .bulk-actions {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: none;
+    }
+    
+    .table-responsive {
+        border-radius: 10px;
+    }
+    
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">工装列表</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item active">工装管理</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'tooling:create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 新增工装
+            </a>
+            <a href="{% url 'tooling:export' %}?{{ request.GET.urlencode }}" class="btn btn-outline-success ms-2">
+                <i class="fas fa-download"></i> 导出CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- 搜索筛选 -->
+    <div class="card search-card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-search"></i> 搜索筛选
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="searchForm">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        {{ form.search.label_tag }}
+                        {{ form.search }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        {{ form.status.label_tag }}
+                        {{ form.status }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        {{ form.manufacturer.label_tag }}
+                        {{ form.manufacturer }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        {{ form.location.label_tag }}
+                        {{ form.location }}
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        {{ form.responsible_person.label_tag }}
+                        {{ form.responsible_person }}
+                    </div>
+                    <div class="col-md-3 mb-3 d-flex align-items-end">
+                        <div class="form-check me-3">
+                            {{ form.needs_maintenance }}
+                            <label class="form-check-label" for="{{ form.needs_maintenance.id_for_label }}">
+                                需要维护
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.calibration_overdue }}
+                            <label class="form-check-label" for="{{ form.calibration_overdue.id_for_label }}">
+                                校准过期
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12 text-end">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-search"></i> 搜索
+                        </button>
+                        <a href="{% url 'tooling:list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-undo"></i> 重置
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 批量操作工具栏 -->
+    <div class="bulk-actions" id="bulkActions">
+        <div class="d-flex justify-content-between align-items-center">
+            <span id="selectedCount">已选择 0 个工装</span>
+            <div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="bulkDelete()">
+                    <i class="fas fa-trash"></i> 批量删除
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
+                    <i class="fas fa-times"></i> 取消选择
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工装列表 -->
+    <div class="tool-table">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40">
+                            <input type="checkbox" id="selectAll" class="form-check-input">
+                        </th>
+                        <th>工装编号</th>
+                        <th>工装名称</th>
+                        <th>型号</th>
+                        <th>制造商</th>
+                        <th>状态</th>
+                        <th>位置</th>
+                        <th>负责人</th>
+                        <th>维护状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tooling in toolings %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="tooling_ids" value="{{ tooling.id }}" class="form-check-input tooling-checkbox">
+                        </td>
+                        <td>
+                            <a href="{% url 'tooling:detail' tooling.pk %}" class="text-decoration-none">
+                                {{ tooling.tooling_id }}
+                            </a>
+                        </td>
+                        <td>{{ tooling.name }}</td>
+                        <td>{{ tooling.model }}</td>
+                        <td>{{ tooling.manufacturer }}</td>
+                        <td>
+                            <span class="status-badge status-{{ tooling.status }}">
+                                {{ tooling.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ tooling.location }}</td>
+                        <td>
+                            {% if tooling.responsible_person %}
+                                {{ tooling.responsible_person.get_full_name|default:tooling.responsible_person.username }}
+                            {% else %}
+                                <span class="text-muted">未分配</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tooling.is_maintenance_due %}
+                                <span class="text-danger fw-bold">
+                                    <i class="fas fa-exclamation-triangle"></i> 需要维护
+                                </span>
+                            {% else %}
+                                <span class="text-success">
+                                    <i class="fas fa-check"></i> 正常
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{% url 'tooling:detail' tooling.pk %}" 
+                                   class="btn btn-outline-info" 
+                                   data-bs-toggle="tooltip" 
+                                   title="查看详情">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'tooling:edit' tooling.pk %}" 
+                                   class="btn btn-outline-primary" 
+                                   data-bs-toggle="tooltip" 
+                                   title="编辑">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" 
+                                        class="btn btn-outline-danger" 
+                                        data-bs-toggle="tooltip" 
+                                        title="删除"
+                                        onclick="deleteTooling({{ tooling.pk }}, '{{ tooling.name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            <i class="fas fa-tools fa-3x mb-3"></i>
+                            <br>
+                            暂无工装数据
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 分页 -->
+        {% if is_paginated %}
+        <div class="card-footer">
+            <nav aria-label="工装列表分页">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">上一页</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">下一页</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <div class="text-center text-muted mt-2">
+                显示第 {{ page_obj.start_index }} - {{ page_obj.end_index }} 条，共 {{ page_obj.paginator.count }} 条记录
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除工装 <strong id="toolingName"></strong> 吗？</p>
+                <p class="text-danger">此操作不可撤销！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <form method="post" id="deleteForm" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量删除表单 -->
+<form method="post" id="bulkDeleteForm" action="#" style="display: none;">
+    <!-- 注意：apps/tooling/urls.py 中似乎没有定义 bulk_delete 的路由，需要确认 -->
+    <!-- 如果没有，这里的 action 需要调整或移除批量删除功能，或者补充路由 -->
+    {% csrf_token %}
+    <div id="bulkDeleteInputs"></div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('[data-bs-toggle="tooltip"]').tooltip();
+    
+    // 全选/取消全选
+    $('#selectAll').change(function() {
+        $('.tooling-checkbox').prop('checked', this.checked);
+        updateBulkActions();
+    });
+    
+    // 单个复选框变化
+    $('.tooling-checkbox').change(function() {
+        updateBulkActions();
+        
+        const total = $('.tooling-checkbox').length;
+        const checked = $('.tooling-checkbox:checked').length;
+        $('#selectAll').prop('indeterminate', checked > 0 && checked < total);
+        $('#selectAll').prop('checked', checked === total);
+    });
+});
+
+function updateBulkActions() {
+    const checkedCount = $('.tooling-checkbox:checked').length;
+    if (checkedCount > 0) {
+        $('#bulkActions').show();
+        $('#selectedCount').text(`已选择 ${checkedCount} 个工装`);
+    } else {
+        $('#bulkActions').hide();
+    }
+}
+
+function clearSelection() {
+    $('.tooling-checkbox').prop('checked', false);
+    $('#selectAll').prop('checked', false);
+    $('#selectAll').prop('indeterminate', false);
+    updateBulkActions();
+}
+
+function deleteTooling(toolingId, toolingName) {
+    $('#toolingName').text(toolingName);
+    $('#deleteForm').attr('action', `/tooling/${toolingId}/delete/`);
+    $('#deleteModal').modal('show');
+}
+
+function bulkDelete() {
+    // 检查是否有批量删除的URL配置
+    // 由于之前检查urls.py没有发现bulk_delete，这里暂时禁用或提示
+    alert('批量删除功能暂未开放');
+}
+</script>
+{% endblock %}

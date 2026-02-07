@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load task_extras %}
+
+{% block title %}编辑试验数据 - {{ data.test_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-edit me-2"></i>编辑试验数据</h2>
+            <p class="text-muted mb-0">试验编号：{{ data.test_number }}</p>
+        </div>
+        <div>
+            <a href="{% url 'tasks:test_data_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>返回列表
+            </a>
+        </div>
+    </div>
+
+    <!-- 数据信息 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="text-muted mb-1">试验类型</label>
+                            <p class="mb-2">{{ data.subtask.test_type.name }}</p>
+                            
+                            <label class="text-muted mb-1">子任务编号</label>
+                            <p class="mb-2">{{ data.subtask.subtask_number }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="text-muted mb-1">创建时间</label>
+                            <p class="mb-2">{{ data.created_at|date:"Y年m月d日 H:i" }}</p>
+                            
+                            <label class="text-muted mb-1">最后更新</label>
+                            <p class="mb-2">{{ data.updated_at|date:"Y年m月d日 H:i" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑表单 -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="fas fa-edit me-2"></i>数据编辑</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    {% for field in fields %}
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ field.field_code }}" class="form-label">
+                            {{ field.field_name }}
+                            {% if field.is_required %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        
+                        {% with field_value=data.test_data|get_item:field.field_code %}
+                        {% if field.field_type == 'text' %}
+                            <input type="text" class="form-control" id="{{ field.field_code }}" 
+                                   name="{{ field.field_code }}" value="{{ field_value|default:'' }}"
+                                   placeholder="{{ field.placeholder|default:'' }}">
+                        {% elif field.field_type == 'textarea' %}
+                            <textarea class="form-control" id="{{ field.field_code }}" 
+                                      name="{{ field.field_code }}" rows="3"
+                                      placeholder="{{ field.placeholder|default:'' }}">{{ field_value|default:'' }}</textarea>
+                        {% elif field.field_type == 'number' %}
+                            <input type="number" class="form-control" id="{{ field.field_code }}" 
+                                   name="{{ field.field_code }}" value="{{ field_value|default:'' }}"
+                                   placeholder="{{ field.placeholder|default:'' }}">
+                        {% elif field.field_type == 'decimal' %}
+                            <input type="number" step="0.01" class="form-control" id="{{ field.field_code }}" 
+                                   name="{{ field.field_code }}" value="{{ field_value|default:'' }}"
+                                   placeholder="{{ field.placeholder|default:'' }}">
+                        {% elif field.field_type == 'date' %}
+                            <input type="date" class="form-control" id="{{ field.field_code }}" 
+                                   name="{{ field.field_code }}" value="{{ field_value|default:'' }}">
+                        {% elif field.field_type == 'datetime' %}
+                            <input type="datetime-local" class="form-control" id="{{ field.field_code }}" 
+                                   name="{{ field.field_code }}" value="{{ field_value|default:'' }}">
+                        {% elif field.field_type == 'select' %}
+                            <select class="form-select" id="{{ field.field_code }}" name="{{ field.field_code }}">
+                                <option value="">请选择</option>
+                                {% for option in field.field_options.options %}
+                                <option value="{{ option }}" {% if field_value == option %}selected{% endif %}>
+                                    {{ option }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        {% elif field.field_type == 'file' %}
+                            <div class="mb-2">
+                                <!-- 显示已上传文件 -->
+                                {% if field_value %}
+                                    {% with file_list=field_value|split:";" %}
+                                    <div class="list-group mb-2">
+                                        {% for file_url in file_list %}
+                                        <div class="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
+                                            <span class="text-truncate me-2" style="max-width: 300px;">
+                                                <i class="fas fa-file-alt me-2 text-muted"></i>{{ file_url|filename }}
+                                            </span>
+                                            <div>
+                                                <a href="{{ file_url|media_url }}" class="btn btn-sm btn-outline-primary me-1" target="_blank" title="下载">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endwith %}
+                                {% else %}
+                                    <div class="alert alert-secondary py-2 px-3 mb-2" role="alert">
+                                        <i class="fas fa-info-circle me-2"></i>暂无上传文件
+                                    </div>
+                                {% endif %}
+                                
+                                <!-- 上传新文件 -->
+                                <div class="input-group">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('file_{{ field.field_code }}').click()">
+                                        <i class="fas fa-plus me-1"></i>添加文件
+                                    </button>
+                                    <input type="text" class="form-control" id="text_{{ field.field_code }}" placeholder="可选择多个文件" disabled readonly>
+                                </div>
+                                <input type="file" id="file_{{ field.field_code }}" name="{{ field.field_code }}" class="d-none" multiple onchange="updateFileLabel(this, '{{ field.field_code }}')">
+                                <small class="text-muted d-block mt-1" id="label_{{ field.field_code }}">
+                                    支持多文件上传，单个文件不超过10MB
+                                </small>
+                            </div>
+                        {% else %}
+                            <input type="text" class="form-control" id="{{ field.field_code }}" 
+                                   name="{{ field.field_code }}" value="{{ field_value|default:'' }}"
+                                   placeholder="{{ field.placeholder|default:'' }}">
+                        {% endif %}
+                        {% endwith %}
+                        
+                        {% if field.help_text %}
+                            <small class="form-text text-muted">{{ field.help_text }}</small>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'tasks:test_data_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i>取消
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>保存更改
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateFileLabel(input, fieldCode) {
+    const label = document.getElementById('label_' + fieldCode);
+    const textInput = document.getElementById('text_' + fieldCode);
+    
+    if (input.files && input.files.length > 0) {
+        let fileNames = [];
+        let totalSize = 0;
+        let valid = true;
+        
+        for (let i = 0; i < input.files.length; i++) {
+            const file = input.files[i];
+            // 文件大小限制 (10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert(`文件 "${file.name}" 大小超过 10MB`);
+                valid = false;
+                break;
+            }
+            fileNames.push(file.name);
+            totalSize += file.size;
+        }
+        
+        if (!valid) {
+            input.value = ''; // 清空选择
+            textInput.value = '';
+            label.textContent = '支持多文件上传，单个文件不超过10MB';
+            label.className = 'text-muted d-block mt-1';
+            return;
+        }
+        
+        textInput.value = `${fileNames.length} 个文件: ${fileNames.join(', ')}`;
+        label.textContent = `已选择 ${fileNames.length} 个文件，保存后生效`;
+        label.className = 'text-success d-block mt-1';
+    } else {
+        textInput.value = '';
+        label.textContent = '支持多文件上传，单个文件不超过10MB';
+        label.className = 'text-muted d-block mt-1';
+    }
+}
+</script>
+{% endblock %}

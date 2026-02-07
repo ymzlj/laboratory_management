@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}工装使用记录{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-form {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .table-container {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    .status-normal {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    
+    .status-wear {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-damaged {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    
+    .btn-action {
+        padding: 4px 8px;
+        margin: 2px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    
+    .filter-tags {
+        margin-bottom: 15px;
+    }
+    
+    .filter-tag {
+        display: inline-block;
+        background: #e9ecef;
+        color: #495057;
+        padding: 4px 12px;
+        border-radius: 15px;
+        margin: 2px;
+        font-size: 0.8rem;
+    }
+    
+    .filter-tag .remove {
+        margin-left: 5px;
+        cursor: pointer;
+        color: #dc3545;
+    }
+    
+    .duration-badge {
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+    }
+    
+    .usage-in-progress {
+        background: #fff3e0;
+        color: #f57c00;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">工装使用记录</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tooling:index' %}">工装管理</a></li>
+                    <li class="breadcrumb-item active">使用记录</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'tooling:usage_record_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> 新增使用记录
+            </a>
+            <a href="#" class="btn btn-outline-secondary" onclick="exportCSV()">
+                <i class="fas fa-download"></i> 导出CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- 搜索筛选表单 -->
+    <div class="search-form">
+        <form method="get" id="searchForm">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="search">关键词</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               value="{{ request.GET.search }}" placeholder="工装名称、使用人、使用目的">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="tooling">工装</label>
+                        <select class="form-control" id="tooling" name="tooling">
+                            <option value="">全部工装</option>
+                            {% for tooling in toolings %}
+                            <option value="{{ tooling.id }}" {% if request.GET.tooling == tooling.id|stringformat:"s" %}selected{% endif %}>
+                                {{ tooling.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="user">使用人</label>
+                        <select class="form-control" id="user" name="user">
+                            <option value="">全部使用人</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}" {% if request.GET.user == user.id|stringformat:"s" %}selected{% endif %}>
+                                {{ user.get_full_name|default:user.username }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="test_task">关联任务</label>
+                        <select class="form-control" id="test_task" name="test_task">
+                            <option value="">全部任务</option>
+                            {% for task in test_tasks %}
+                            <option value="{{ task.id }}" {% if request.GET.test_task == task.id|stringformat:"s" %}selected{% endif %}>
+                                {{ task.task_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="tooling_condition">使用后状态</label>
+                        <select class="form-control" id="tooling_condition" name="tooling_condition">
+                            <option value="">全部状态</option>
+                            <option value="normal" {% if request.GET.tooling_condition == 'normal' %}selected{% endif %}>正常</option>
+                            <option value="wear" {% if request.GET.tooling_condition == 'wear' %}selected{% endif %}>磨损</option>
+                            <option value="damaged" {% if request.GET.tooling_condition == 'damaged' %}selected{% endif %}>损坏</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-1">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <div>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="start_date">开始日期</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" 
+                               value="{{ request.GET.start_date }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="end_date">结束日期</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" 
+                               value="{{ request.GET.end_date }}">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="in_progress" name="in_progress" 
+                               {% if request.GET.in_progress %}checked{% endif %}>
+                        <label class="form-check-label" for="in_progress">
+                            仅显示使用中
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-3 text-right">
+                    <div class="mt-4">
+                        <a href="{% url 'tooling:usage_record_list' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> 清除筛选
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 筛选标签 -->
+    {% if request.GET %}
+    <div class="filter-tags">
+        {% if request.GET.search %}
+        <span class="filter-tag">
+            关键词: {{ request.GET.search }}
+            <span class="remove" onclick="removeFilter('search')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.tooling %}
+        <span class="filter-tag">
+            工装: {{ request.GET.tooling }}
+            <span class="remove" onclick="removeFilter('tooling')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.user %}
+        <span class="filter-tag">
+            使用人: {{ request.GET.user }}
+            <span class="remove" onclick="removeFilter('user')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.test_task %}
+        <span class="filter-tag">
+            任务: {{ request.GET.test_task }}
+            <span class="remove" onclick="removeFilter('test_task')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.start_date %}
+        <span class="filter-tag">
+            开始日期: {{ request.GET.start_date }}
+            <span class="remove" onclick="removeFilter('start_date')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.end_date %}
+        <span class="filter-tag">
+            结束日期: {{ request.GET.end_date }}
+            <span class="remove" onclick="removeFilter('end_date')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.tooling_condition %}
+        <span class="filter-tag">
+            状态: {{ request.GET.tooling_condition }}
+            <span class="remove" onclick="removeFilter('tooling_condition')">&times;</span>
+        </span>
+        {% endif %}
+        {% if request.GET.in_progress %}
+        <span class="filter-tag">
+            仅显示使用中
+            <span class="remove" onclick="removeFilter('in_progress')">&times;</span>
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 使用记录列表 -->
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="thead-light">
+                    <tr>
+                        <th>工装</th>
+                        <th>使用人</th>
+                        <th>关联任务</th>
+                        <th>开始时间</th>
+                        <th>结束时间</th>
+                        <th>使用时长</th>
+                        <th>使用目的</th>
+                        <th>使用后状态</th>
+                        <th width="120">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in usage_records %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'tooling:detail' record.tooling.id %}" class="text-decoration-none">
+                                {{ record.tooling.name }}
+                            </a>
+                            <small class="text-muted d-block">{{ record.tooling.tooling_id }}</small>
+                        </td>
+                        <td>{{ record.user.get_full_name|default:record.user.username }}</td>
+                        <td>
+                            {% if record.test_task %}
+                                <a href="{% url 'tasks:detail' record.test_task.id %}" class="text-decoration-none">
+                                    {{ record.test_task.task_name }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">无关联任务</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ record.start_time|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            {% if record.end_time %}
+                                {{ record.end_time|date:"Y-m-d H:i" }}
+                            {% else %}
+                                <span class="usage-in-progress">使用中</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.usage_duration %}
+                                <span class="duration-badge">
+                                    {% with duration=record.usage_duration %}
+                                        {% if duration.days %}
+                                            {{ duration.days }}天
+                                        {% endif %}
+                                        {{ duration.seconds|floatformat:0|div:3600|floatformat:1 }}小时
+                                    {% endwith %}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ record.usage_purpose|truncatechars:30 }}</td>
+                        <td>
+                            <span class="status-badge status-{{ record.tooling_condition }}">
+                                {{ record.get_tooling_condition_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'tooling:usage_record_detail' record.id %}" class="btn btn-info btn-action" 
+                               data-toggle="tooltip" title="查看详情">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'tooling:usage_record_edit' record.id %}" class="btn btn-warning btn-action"
+                               data-toggle="tooltip" title="编辑">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <div>暂无使用记录</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分页 -->
+        {% if is_paginated %}
+        <nav aria-label="使用记录分页">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">上一页</a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">下一页</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 初始化工具提示
+    $('[data-toggle="tooltip"]').tooltip();
+    
+    // 实时搜索
+    let searchTimeout;
+    $('#search').on('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            $('#searchForm').submit();
+        }, 500);
+    });
+    
+    // 日期字段设置
+    const today = new Date().toISOString().split('T')[0];
+    $('#start_date, #end_date').attr('max', today);
+    
+    // 开始日期变化时，设置结束日期的最小值
+    $('#start_date').on('change', function() {
+        $('#end_date').attr('min', $(this).val());
+    });
+    
+    // 结束日期变化时，设置开始日期的最大值
+    $('#end_date').on('change', function() {
+        $('#start_date').attr('max', $(this).val());
+    });
+});
+
+// 移除筛选条件
+function removeFilter(filterName) {
+    const url = new URL(window.location);
+    url.searchParams.delete(filterName);
+    window.location.href = url.toString();
+}
+
+// 导出CSV
+function exportCSV() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'csv');
+    window.location.href = '{% url "tooling:usage_record_list" %}?' + params.toString();
+}
+</script>
+{% endblock %}

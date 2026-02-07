@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - {{ test_type.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="fas fa-cog me-2"></i>{{ title }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'index' %}">首页</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tasks:test_type_list' %}">试验类型管理</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'tasks:test_type_detail' test_type.pk %}">{{ test_type.name }}</a></li>
+                    <li class="breadcrumb-item active">{{ title }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        为 <strong>{{ test_type.name }}</strong> {{ title }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ form.field_name.label }} <span class="text-danger">*</span></label>
+                                {{ form.field_name }}
+                                {% if form.field_name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.field_name.errors }}
+                                    </div>
+                                {% endif %}
+                                <small class="form-text text-muted">显示在界面上的字段名称</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ form.field_code.label }} <span class="text-danger">*</span></label>
+                                {{ form.field_code }}
+                                {% if form.field_code.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.field_code.errors }}
+                                    </div>
+                                {% endif %}
+                                {% if form.field_code.help_text %}
+                                    <small class="form-text text-muted">{{ form.field_code.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ form.field_type.label }} <span class="text-danger">*</span></label>
+                                {{ form.field_type }}
+                                {% if form.field_type.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.field_type.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ form.order.label }}</label>
+                                {{ form.order }}
+                                {% if form.order.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.order.errors }}
+                                    </div>
+                                {% endif %}
+                                {% if form.order.help_text %}
+                                    <small class="form-text text-muted">{{ form.order.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.options_text.label }}</label>
+                            {{ form.options_text }}
+                            {% if form.options_text.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.options_text.errors }}
+                                </div>
+                            {% endif %}
+                            {% if form.options_text.help_text %}
+                                <small class="form-text text-muted">{{ form.options_text.help_text }}</small>
+                            {% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ form.default_value.label }}</label>
+                                {{ form.default_value }}
+                                {% if form.default_value.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.default_value.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">{{ form.placeholder.label }}</label>
+                                {{ form.placeholder }}
+                                {% if form.placeholder.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.placeholder.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.help_text.label }}</label>
+                            {{ form.help_text }}
+                            {% if form.help_text.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.help_text.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div id="image-upload-section" class="mb-3" style="display:none;">
+                            <label class="form-label">图片上传</label>
+                            <input id="images" name="images" type="file" class="form-control" accept="image/*" multiple>
+                            <input id="images_order" name="images_order" type="hidden">
+                            <div id="image-preview-list" class="mt-3 d-flex flex-wrap gap-3"></div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.is_required }}
+                                    <label class="form-check-label" for="{{ form.is_required.id_for_label }}">
+                                        {{ form.is_required.label }}
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        {{ form.is_active.label }}
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.is_batch_input_enabled }}
+                                    <label class="form-check-label" for="{{ form.is_batch_input_enabled.id_for_label }}">
+                                        {{ form.is_batch_input_enabled.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'tasks:test_type_detail' test_type.pk %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>取消
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>保存
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧提示信息 -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>填写提示</h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-primary">字段类型说明：</h6>
+                    <ul class="small mb-3">
+                        <li><strong>文本</strong>：单行文本输入框</li>
+                        <li><strong>多行文本</strong>：多行文本输入区域</li>
+                        <li><strong>数字</strong>：只能输入整数</li>
+                        <li><strong>小数</strong>：可输入小数的数字</li>
+                        <li><strong>日期</strong>：日期选择器</li>
+                        <li><strong>日期时间</strong>：日期和时间选择器</li>
+                        <li><strong>下拉选择</strong>：从预定义选项中选择</li>
+                        <li><strong>复选框</strong>：多选选项</li>
+                        <li><strong>文件上传</strong>：上传文件；支持图片上传</li>
+                    </ul>
+                    
+                    <h6 class="text-primary">配置建议：</h6>
+                    <ul class="small mb-0">
+                        <li>字段代码应使用英文，便于系统处理</li>
+                        <li>合理设置显示顺序，数字越小越靠前</li>
+                        <li>为必填字段添加清晰的提示文本</li>
+                        <li>下拉选择类型需要配置选项列表</li>
+                        <li>图片格式：JPG、PNG、GIF、WebP；单张不超过5MB</li>
+                        <li class="text-info">在上传文件/图片列时，可使用同一个文件选择框一次选择多张图片。按住键盘Ctrl键可进行不连续多选，按住Shift键可进行连续多选。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% if field %}
+<script id="existing-images-json" type="application/json">{% if field.field_options.images %}{{ field.field_options.images|safe }}{% else %}[]{% endif %}</script>
+<script id="field-id-json" type="application/json">{{ field.id }}</script>
+{% endif %}
+<script>
+// 批量录入开关确认
+var batchSwitch = document.getElementById("{{ form.is_batch_input_enabled.id_for_label }}");
+if(batchSwitch){
+    batchSwitch.addEventListener('click', function(e){
+        var newState = e.target.checked;
+        var msg = newState ? 
+            "确定要启用批量录入吗？该字段将出现在批量录入表格中。" : 
+            "确定要禁用批量录入吗？该字段将仅在子任务详情中单独显示，且不会出现在批量录入表格中。";
+        if(!confirm(msg)){
+            e.preventDefault();
+            e.target.checked = !newState;
+        }
+    });
+}
+
+var fieldTypeSelect=document.getElementById("id_field_type");var imageSection=document.getElementById("image-upload-section");function toggleImageSection(){if(!fieldTypeSelect){return}var v=fieldTypeSelect.value;imageSection.style.display=v==="file"?"block":"none"}toggleImageSection();if(fieldTypeSelect){fieldTypeSelect.addEventListener("change",toggleImageSection)}
+var inputImages=document.getElementById("images");var previewList=document.getElementById("image-preview-list");var orderInput=document.getElementById("images_order");var existingJsonEl=document.getElementById("existing-images-json");var fieldIdEl=document.getElementById("field-id-json");var existingImages=[];var newFiles=[];function refreshOrder(){var ids=[];var items=previewList.querySelectorAll("[data-key]");items.forEach(function(it){ids.push(it.getAttribute("data-key"))});orderInput.value=JSON.stringify(ids)}
+function addPreviewItem(key,url,isExisting,fileObj){var item=document.createElement("div");item.className="position-relative border rounded";item.style.width="120px";item.style.height="120px";item.style.overflow="hidden";item.setAttribute("data-key",key);item.draggable=true;var img=document.createElement("img");img.src=url;img.style.width="100%";img.style.height="100%";img.style.objectFit="cover";var del=document.createElement("button");del.type="button";del.className="btn btn-sm btn-danger position-absolute";del.style.top="4px";del.style.right="4px";del.textContent="删除";del.addEventListener("click",function(){if(isExisting&&fieldIdEl){var csrf=document.querySelector('input[name="csrfmiddlewaretoken"]').value;fetch("/tasks/test-type-fields/"+JSON.parse(fieldIdEl.textContent)+"/image/delete/",{method:"POST",headers:{"X-CSRFToken":csrf,"Content-Type":"application/json"},body:JSON.stringify({image_path:key})}).then(function(r){return r.json()}).then(function(d){if(d&&d.success){item.remove();refreshOrder()}})}else{var idx=newFiles.findIndex(function(f){return f._key===key});if(idx>-1){newFiles.splice(idx,1)}item.remove();refreshOrder()}});item.addEventListener("dragstart",function(e){e.dataTransfer.setData("text/plain",key)});item.addEventListener("dragover",function(e){e.preventDefault()});item.addEventListener("drop",function(e){e.preventDefault();var from=e.dataTransfer.getData("text/plain");var to=key;if(from===to){return}var fromEl=previewList.querySelector('[data-key="'+from+'"]');var toEl=item;previewList.insertBefore(fromEl,toEl);refreshOrder()});item.appendChild(img);item.appendChild(del);previewList.appendChild(item);refreshOrder()}
+if(existingJsonEl&&existingJsonEl.textContent){try{existingImages=JSON.parse(existingJsonEl.textContent)||[]}catch(e){existingImages=[]}existingImages.forEach(function(info){var p=info.path||info.url||"";if(p){var u=(p.indexOf("http")===0)?p:("/media/"+p);addPreviewItem(p,u,true,null)}}}
+function validateImage(f){if(!f||!f.type||!f.size){return false}if(!(f.type.indexOf("image/")===0)){return false}if(f.size>5*1024*1024){return false}return true}
+if(inputImages){inputImages.addEventListener("change",function(e){var files=Array.prototype.slice.call(e.target.files||[]);files.forEach(function(f){if(validateImage(f)){var key="new-"+Date.now()+"-"+Math.random().toString(36).slice(2);f._key=key;newFiles.push(f);var url=URL.createObjectURL(f);addPreviewItem(key,url,false,f)}})})}
+</script>
+{% endblock %}

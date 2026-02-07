@@ -1,0 +1,419 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}我的任务{% endblock %}
+
+{% block extra_css %}
+<style>
+    .task-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .task-item {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #dee2e6;
+        transition: all 0.3s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .task-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    }
+    .priority-high { border-left-color: #dc3545; }
+    .priority-medium { border-left-color: #ffc107; }
+    .priority-low { border-left-color: #28a745; }
+    .overdue { background-color: #fff5f5; }
+    .stats-summary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    .quick-action-btn {
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-user-check me-2"></i>我的任务</h2>
+        <div>
+            <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>新建任务
+            </a>
+            <a href="{% url 'tasks:dashboard' %}" class="btn btn-outline-info">
+                <i class="fas fa-chart-bar me-1"></i>仪表板
+            </a>
+        </div>
+    </div>
+
+    <!-- 统计概览 -->
+    <div class="stats-summary">
+        <div class="row">
+            <div class="col-md-6">
+                <h4><i class="fas fa-paper-plane me-2"></i>我申请的任务</h4>
+                <p class="mb-0">共 <strong>{{ requested_count }}</strong> 个任务</p>
+            </div>
+            <div class="col-md-6">
+                <h4><i class="fas fa-tasks me-2"></i>分配给我的任务</h4>
+                <p class="mb-0">共 <strong>{{ assigned_count }}</strong> 个任务</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 我申请的任务 -->
+        <div class="col-md-6">
+            <div class="task-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">
+                        <i class="fas fa-paper-plane me-2 text-primary"></i>
+                        我申请的任务
+                    </h4>
+                    {% if requested_count > 10 %}
+                    <a href="{% url 'tasks:task_list' %}?requester={{ user.id }}" class="btn btn-outline-primary btn-sm">
+                        查看全部 ({{ requested_count }})
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if requested_tasks %}
+                    {% for task in requested_tasks %}
+                    <div class="task-item 
+                        {% if task.priority.code == 'high' %}priority-high
+                        {% elif task.priority.code == 'medium' %}priority-medium
+                        {% else %}priority-low{% endif %}
+                        {% if task.is_overdue %}overdue{% endif %}">
+                        
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">
+                                <a href="{% url 'tasks:task_detail' task.id %}" class="text-decoration-none">
+                                    {{ task.task_name }}
+                                </a>
+                            </h6>
+                            <span class="badge 
+                                {% if task.status.code == 'pending' %}bg-warning
+                                {% elif task.status.code == 'in_progress' %}bg-primary
+                                {% elif task.status.code == 'completed' %}bg-success
+                                {% elif task.status.code == 'cancelled' %}bg-secondary
+                                {% elif task.status.code == 'rejected' %}bg-danger
+                                {% else %}bg-info{% endif %}">
+                                {{ task.status.name }}
+                            </span>
+                        </div>
+
+                        <div class="row small text-muted mb-2">
+                            <div class="col-6">
+                                <strong>编号：</strong>{{ task.task_number }}
+                            </div>
+                            <div class="col-6">
+                                <strong>类型：</strong>{{ task.test_type.name }}
+                            </div>
+                        </div>
+
+                        <div class="row small text-muted mb-2">
+                            <div class="col-6">
+                                <strong>负责人：</strong>
+                                {% if task.assignee %}
+                                    {{ task.assignee.username }}
+                                {% else %}
+                                    <span class="text-warning">未分配</span>
+                                {% endif %}
+                            </div>
+                            <div class="col-6">
+                                <strong>优先级：</strong>
+                                <span class="badge 
+                                    {% if task.priority.code == 'high' %}bg-danger
+                                    {% elif task.priority.code == 'medium' %}bg-warning
+                                    {% else %}bg-success{% endif %} small">
+                                    {{ task.priority.name }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="row small text-muted mb-3">
+                            <div class="col-6">
+                                <strong>开始：</strong>{{ task.start_date|date:"m/d" }}
+                            </div>
+                            <div class="col-6">
+                                <strong>结束：</strong>{{ task.end_date|date:"m/d" }}
+                            </div>
+                        </div>
+
+                        {% if task.is_overdue %}
+                        <div class="alert alert-danger py-1 px-2 mb-2">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            <small>任务已逾期</small>
+                        </div>
+                        {% endif %}
+
+                        <!-- 进度条 -->
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small class="text-muted">进度</small>
+                                <small class="text-muted">{{ task.progress_percentage }}%</small>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar 
+                                    {% if task.status.code == 'completed' %}bg-success
+                                    {% elif task.status.code == 'in_progress' %}bg-primary
+                                    {% else %}bg-secondary{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ task.progress_percentage }}%">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                {{ task.created_at|timesince }}前创建
+                            </small>
+                            <div>
+                                <a href="{% url 'tasks:task_detail' task.id %}" class="btn btn-outline-primary quick-action-btn">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if user == task.requester or user.role == 'manager' or user.role == 'admin' %}
+                                <a href="{% url 'tasks:task_edit' task.id %}" class="btn btn-outline-secondary quick-action-btn">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <h5>暂无申请的任务</h5>
+                        <p>您还没有申请任何任务</p>
+                        <a href="{% url 'tasks:task_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>创建第一个任务
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 分配给我的任务 -->
+        <div class="col-md-6">
+            <div class="task-section">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">
+                        <i class="fas fa-tasks me-2 text-success"></i>
+                        分配给我的任务
+                    </h4>
+                    {% if assigned_count > 10 %}
+                    <a href="{% url 'tasks:task_list' %}?assignee={{ user.id }}" class="btn btn-outline-success btn-sm">
+                        查看全部 ({{ assigned_count }})
+                    </a>
+                    {% endif %}
+                </div>
+
+                {% if assigned_tasks %}
+                    {% for task in assigned_tasks %}
+                    <div class="task-item 
+                        {% if task.priority.code == 'high' %}priority-high
+                        {% elif task.priority.code == 'medium' %}priority-medium
+                        {% else %}priority-low{% endif %}
+                        {% if task.is_overdue %}overdue{% endif %}">
+                        
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">
+                                <a href="{% url 'tasks:task_detail' task.id %}" class="text-decoration-none">
+                                    {{ task.task_name }}
+                                </a>
+                            </h6>
+                            <span class="badge 
+                                {% if task.status.code == 'pending' %}bg-warning
+                                {% elif task.status.code == 'in_progress' %}bg-primary
+                                {% elif task.status.code == 'completed' %}bg-success
+                                {% elif task.status.code == 'cancelled' %}bg-secondary
+                                {% elif task.status.code == 'rejected' %}bg-danger
+                                {% else %}bg-info{% endif %}">
+                                {{ task.status.name }}
+                            </span>
+                        </div>
+
+                        <div class="row small text-muted mb-2">
+                            <div class="col-6">
+                                <strong>编号：</strong>{{ task.task_number }}
+                            </div>
+                            <div class="col-6">
+                                <strong>类型：</strong>{{ task.test_type.name }}
+                            </div>
+                        </div>
+
+                        <div class="row small text-muted mb-2">
+                            <div class="col-6">
+                                <strong>申请人：</strong>{{ task.requester.username }}
+                            </div>
+                            <div class="col-6">
+                                <strong>优先级：</strong>
+                                <span class="badge 
+                                    {% if task.priority.code == 'high' %}bg-danger
+                                    {% elif task.priority.code == 'medium' %}bg-warning
+                                    {% else %}bg-success{% endif %} small">
+                                    {{ task.priority.name }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="row small text-muted mb-3">
+                            <div class="col-6">
+                                <strong>开始：</strong>{{ task.start_date|date:"m/d" }}
+                            </div>
+                            <div class="col-6">
+                                <strong>结束：</strong>{{ task.end_date|date:"m/d" }}
+                            </div>
+                        </div>
+
+                        {% if task.is_overdue %}
+                        <div class="alert alert-danger py-1 px-2 mb-2">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            <small>任务已逾期</small>
+                        </div>
+                        {% endif %}
+
+                        <!-- 进度条 -->
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small class="text-muted">进度</small>
+                                <small class="text-muted">{{ task.progress_percentage }}%</small>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar 
+                                    {% if task.status.code == 'completed' %}bg-success
+                                    {% elif task.status.code == 'in_progress' %}bg-primary
+                                    {% else %}bg-secondary{% endif %}" 
+                                    role="progressbar" 
+                                    style="width: {{ task.progress_percentage }}%">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                {{ task.created_at|timesince }}前分配
+                            </small>
+                            <div>
+                                <a href="{% url 'tasks:task_detail' task.id %}" class="btn btn-outline-primary quick-action-btn">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if task.status.code == 'pending' %}
+                                <button class="btn btn-outline-success quick-action-btn" 
+                                    onclick="updateTaskStatus({{ task.id }}, 'in_progress')" 
+                                    title="开始任务">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                {% elif task.status.code == 'in_progress' %}
+                                <button class="btn btn-outline-info quick-action-btn" 
+                                    onclick="updateTaskStatus({{ task.id }}, 'completed')" 
+                                    title="完成任务">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-user-clock fa-3x mb-3"></i>
+                        <h5>暂无分配的任务</h5>
+                        <p>目前没有分配给您的任务</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 快速操作 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>快速操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'tasks:task_create' %}" class="btn btn-primary w-100">
+                                <i class="fas fa-plus me-1"></i>新建任务
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'tasks:task_list' %}?assignee={{ user.id }}&status=pending" class="btn btn-warning w-100">
+                                <i class="fas fa-clock me-1"></i>我的待办
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'tasks:task_list' %}?assignee={{ user.id }}&status=in_progress" class="btn btn-info w-100">
+                                <i class="fas fa-play me-1"></i>进行中
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'tasks:task_list' %}?assignee={{ user.id }}&status=completed" class="btn btn-success w-100">
+                                <i class="fas fa-check me-1"></i>已完成
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateTaskStatus(taskId, statusCode) {
+    if (confirm('确认要更新任务状态吗？')) {
+        // 这里应该发送AJAX请求更新状态
+        // 为了简化，暂时使用页面刷新
+        fetch(`/tasks/${taskId}/status-update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                status_code: statusCode
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('更新失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('网络错误，请重试');
+        });
+    }
+}
+
+// 页面加载完成后的初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 可以添加一些页面初始化逻辑
+    console.log('我的任务页面已加载');
+});
+</script>
+{% endblock %}

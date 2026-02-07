@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}试验数据管理{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stats-card .card-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+        margin-bottom: 10px;
+    }
+    
+    .stats-card .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+    
+    .stats-card .card-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stats-card .card-subtitle {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+    
+    .test-type-card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+    }
+    
+    .test-type-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    
+    .test-type-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+        margin-bottom: 15px;
+    }
+    
+    .recent-item {
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin-bottom: 10px;
+        background: #f8f9fa;
+        border-radius: 0 8px 8px 0;
+        transition: all 0.3s ease;
+    }
+    
+    .recent-item:hover {
+        background: #e9ecef;
+        border-left-color: #0056b3;
+    }
+    
+    .recent-item .item-type {
+        font-size: 0.8rem;
+        color: #6c757d;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .recent-item .item-title {
+        font-weight: 600;
+        color: #495057;
+        margin: 5px 0;
+    }
+    
+    .recent-item .item-meta {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">试验数据管理</h1>
+            <p class="text-muted">管理和查看各类试验数据</p>
+        </div>
+        <div>
+            <a href="{% url 'test_data:statistics' %}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-bar"></i> 数据统计
+            </a>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="card-icon">
+                    <i class="fas fa-vials"></i>
+                </div>
+                <div class="card-title">试验类型</div>
+                <div class="card-value">{{ stats|length }}</div>
+                <div class="card-subtitle">种试验数据类型</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-icon">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div class="card-title">总数据量</div>
+                <div class="card-value">
+                    {% for key, stat in stats.items %}
+                        {% if forloop.first %}{{ stat.count }}{% else %}+{{ stat.count }}{% endif %}
+                    {% endfor %}
+                </div>
+                <div class="card-subtitle">条试验数据</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="card-icon">
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <div class="card-title">本月新增</div>
+                <div class="card-value">
+                    {% for key, stat in stats.items %}
+                        {% if forloop.first %}{{ stat.recent_count }}{% else %}+{{ stat.recent_count }}{% endif %}
+                    {% endfor %}
+                </div>
+                <div class="card-subtitle">条试验数据</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <div class="card-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="card-title">活跃试验员</div>
+                <div class="card-value">{{ active_testers|default:0 }}</div>
+                <div class="card-subtitle">位试验员</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 试验类型 -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-flask"></i> 试验数据类型
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for key, stat in stats.items %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="test-type-card card h-100">
+                                <div class="card-body text-center">
+                                    <div class="test-type-icon mx-auto" style="background: {% cycle '#007bff' '#28a745' '#ffc107' '#dc3545' '#6f42c1' '#fd7e14' '#20c997' '#6c757d' %};">
+                                        <i class="fas {% if key == 'anti_slip' %}fa-shoe-prints{% elif key == 'metal_impact' %}fa-hammer{% elif key == 'metal_tensile' %}fa-arrows-alt-h{% elif key == 'compression' %}fa-compress-arrows-alt{% elif key == 'fatigue' %}fa-sync-alt{% elif key == 'hardness' %}fa-gem{% elif key == 'creep' %}fa-clock{% else %}fa-tint{% endif %}"></i>
+                                    </div>
+                                    <h6 class="card-title">{{ stat.name }}</h6>
+                                    <p class="card-text">
+                                        <span class="badge badge-primary">{{ stat.count }} 条数据</span>
+                                        {% if stat.recent_count > 0 %}
+                                        <br><small class="text-success">本月新增 {{ stat.recent_count }} 条</small>
+                                        {% endif %}
+                                    </p>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'test_data:list' key %}" class="btn btn-outline-primary">
+                                            <i class="fas fa-list"></i> 查看
+                                        </a>
+                                        <a href="{% url 'test_data:create' key %}" class="btn btn-outline-success">
+                                            <i class="fas fa-plus"></i> 新增
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近数据 -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock"></i> 最近试验数据
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_data %}
+                        {% for data in recent_data %}
+                        <div class="recent-item">
+                            <div class="item-type">{{ data.type }}</div>
+                            <div class="item-title">
+                                <a href="{% url 'test_data:detail' data.type_key data.item.pk %}" class="text-decoration-none">
+                                    {{ data.item.sample_id }}
+                                </a>
+                            </div>
+                            <div class="item-meta">
+                                <i class="fas fa-user"></i> {{ data.item.tester.get_full_name|default:data.item.tester.username }}
+                                <br>
+                                <i class="fas fa-calendar"></i> {{ data.item.test_date|date:"Y-m-d" }}
+                                <span class="badge badge-{% if data.item.result == 'pass' %}success{% elif data.item.result == 'fail' %}danger{% else %}warning{% endif %} ml-2">
+                                    {{ data.item.get_result_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                            <p>暂无试验数据</p>
+                            <a href="#" class="btn btn-primary btn-sm">创建第一条数据</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 添加动画效果
+    $('.stats-card, .test-type-card').each(function(index) {
+        $(this).css('opacity', '0').delay(index * 100).animate({
+            opacity: 1
+        }, 500);
+    });
+    
+    // 工具提示
+    $('[data-toggle="tooltip"]').tooltip();
+});
+</script>
+{% endblock %}
