@@ -6,7 +6,9 @@ from django.http import Http404, JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from datetime import datetime
@@ -24,7 +26,7 @@ def task_list(request):
     search_form = TestTaskSearchForm(request.GET)
     tasks = TestTask.objects.select_related(
         'test_type', 'priority', 'status', 'requester', 'assignee'
-    ).all()
+    ).prefetch_related('reports', 'process_history').all()
     
     # 针对试验室主任（manager）的默认视图优化
     if request.user.role == 'manager' and not request.GET.get('status'):
@@ -105,7 +107,42 @@ def task_list(request):
     return render(request, 'tasks/task_list.html', context)
 
 
-@login_required
+def generate_task_number(task):
+    """生成任务编号：日期+试验类型简称+申请部门简称+序号
+    例如：20260212dh_textYF01
+    """
+    from apps.users.models import Department
+    
+    today_str = timezone.now().strftime('%Y%m%d')
+    
+    # 获取试验类型代码
+    test_type_code = ''
+    if task.test_type and task.test_type.code:
+        test_type_code = task.test_type.code.lower()
+    
+    # 获取部门代码
+    dept_code = ''
+    if task.requester_department:
+        try:
+            dept = Department.objects.get(name=task.requester_department)
+            dept_code = dept.code.lower()
+        except Department.DoesNotExist:
+            # 如果找不到部门，使用部门名称的前两个字母
+            dept_code = task.requester_department[:2].lower() if task.requester_department else 'xx'
+    
+    # 生成序号（基于当天该类型的任务数）
+    from django.db.models import Q
+    base_query = TestTask.objects.filter(
+        created_at__date=timezone.now().date(),
+        test_type=task.test_type
+    )
+    count = base_query.count() + 1
+    
+    # 组合任务编号
+    task_number = f"{today_str}{test_type_code}{dept_code}{count:02d}"
+    return task_number
+
+
 def task_create(request):
     """创建试验任务"""
     if request.method == 'POST':
@@ -117,12 +154,13 @@ def task_create(request):
             pending_status = TaskStatus.objects.get(code='pending')
             task.status = pending_status
             
-            # 生成任务编号
-            today_str = datetime.now().strftime('%Y%m%d')
-            count = TestTask.objects.filter(created_at__date=datetime.now().date()).count() + 1
-            task.task_number = f"TASK-{today_str}-{count:03d}"
-            
+            # 先保存以获取关联对象
             task.save()
+            
+            # 生成任务编号
+            task.task_number = generate_task_number(task)
+            task.save()
+            
             messages.success(request, f'任务 {task.task_number} 创建成功！')
             return redirect('tasks:task_list')
     else:
@@ -291,9 +329,31 @@ def task_status_update(request, task_id):
             
         task.save()
         
+        # 同步更新所有子任务状态
+        subtasks_updated = 0
+        try:
+            subtasks = task.subtasks.all()
+            for subtask in subtasks:
+                # 只同步特定状态，避免覆盖子任务的独立工作流
+                if new_status.code in ['cancelled', 'archived']:
+                    # 主任务取消或归档时，子任务也同步
+                    subtask.status = new_status
+                    subtask.save()
+                    subtasks_updated += 1
+                elif new_status.code == 'in_progress' and subtask.status.code == 'pending':
+                    # 主任务开始时，待处理的子任务也变为进行中
+                    subtask.status = new_status
+                    subtask.save()
+                    subtasks_updated += 1
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            # 子任务同步失败不影响主任务更新，但记录日志
+            print(f"子任务状态同步失败: {e}")
+        
         return JsonResponse({
             'success': True, 
-            'message': f'状态已更新为：{new_status.name}',
+            'message': f'状态已更新为：{new_status.name}' + (f'，同步更新了 {subtasks_updated} 个子任务' if subtasks_updated > 0 else ''),
             'new_status': new_status.name,
             'new_status_code': new_status.code
         })
@@ -346,51 +406,406 @@ def task_dashboard(request):
 
 @login_required
 def my_tasks(request):
-    """我的任务"""
-    # 重定向到列表页，带上筛选参数
-    if request.user.role == 'engineer':
-        return redirect('/tasks/?assignee=' + str(request.user.id))
+    """我的任务 - 支持筛选和分页"""
+    from django.core.paginator import Paginator
+    from .models import TestType, TaskStatus, TaskPriority
+    
+    user = request.user
+    
+    base_assigned_qs = TestTask.objects.filter(assignee=user)
+    base_requested_qs = TestTask.objects.filter(requester=user)
+    
+    task_type_filter = request.GET.get('task_type', '')
+    status_filter = request.GET.get('status', '')
+    priority_filter = request.GET.get('priority', '')
+    search_query = request.GET.get('search', '')
+    
+    if task_type_filter:
+        base_assigned_qs = base_assigned_qs.filter(test_type_id=task_type_filter)
+        base_requested_qs = base_requested_qs.filter(test_type_id=task_type_filter)
+    
+    if status_filter:
+        base_assigned_qs = base_assigned_qs.filter(status__code=status_filter)
+        base_requested_qs = base_requested_qs.filter(status__code=status_filter)
+    
+    if priority_filter:
+        base_assigned_qs = base_assigned_qs.filter(priority__code=priority_filter)
+        base_requested_qs = base_requested_qs.filter(priority__code=priority_filter)
+    
+    if search_query:
+        base_assigned_qs = base_assigned_qs.filter(
+            Q(task_name__icontains=search_query) | Q(task_number__icontains=search_query)
+        )
+        base_requested_qs = base_requested_qs.filter(
+            Q(task_name__icontains=search_query) | Q(task_number__icontains=search_query)
+        )
+    
+    base_assigned_qs = base_assigned_qs.select_related('test_type', 'status', 'priority', 'requester').order_by('-created_at')
+    base_requested_qs = base_requested_qs.select_related('test_type', 'status', 'priority', 'assignee').order_by('-created_at')
+    
+    assigned_paginator = Paginator(base_assigned_qs, 10)
+    requested_paginator = Paginator(base_requested_qs, 10)
+    
+    assigned_page = request.GET.get('page', 1)
+    requested_page = request.GET.get('page', 1)
+    
+    current_tab = request.GET.get('tab', 'assigned')
+    if current_tab == 'requested':
+        assigned_page_obj = assigned_paginator.get_page(1)
+        requested_page_obj = requested_paginator.get_page(requested_page)
     else:
-        return redirect('/tasks/?requester=' + str(request.user.id))
+        assigned_page_obj = assigned_paginator.get_page(assigned_page)
+        requested_page_obj = requested_paginator.get_page(1)
+    
+    stats = {
+        'total': base_assigned_qs.count() + base_requested_qs.count(),
+        'pending': base_assigned_qs.filter(status__code='pending').count() + base_requested_qs.filter(status__code='pending').count(),
+        'in_progress': base_assigned_qs.filter(status__code='in_progress').count() + base_requested_qs.filter(status__code='in_progress').count(),
+        'completed': base_assigned_qs.filter(status__code='completed').count() + base_requested_qs.filter(status__code='completed').count(),
+    }
+    
+    test_types = TestType.objects.filter(level_type=2).order_by('name')
+    
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
+    query_params.pop('tab', None)
+    query_string = query_params.urlencode()
+    
+    context = {
+        'assigned_tasks': assigned_page_obj,
+        'requested_tasks': requested_page_obj,
+        'assigned_page_obj': assigned_page_obj,
+        'requested_page_obj': requested_page_obj,
+        'assigned_count': base_assigned_qs.count(),
+        'requested_count': base_requested_qs.count(),
+        'stats': stats,
+        'test_types': test_types,
+        'query_string': query_string,
+    }
+    
+    return render(request, 'tasks/my_tasks.html', context)
 
 
 # ==================== 试验类型管理 ====================
 
+def api_test_type_list(request):
+    """API: 获取试验类型列表 (JSON) - 包含子类型"""
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    from rest_framework.exceptions import AuthenticationFailed
+    from django.contrib.auth.models import AnonymousUser
+    from django.db.models import Count
+    
+    user = request.user
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        try:
+            validated = JWTAuthentication().authenticate(request)
+            if validated:
+                user, _ = validated
+        except AuthenticationFailed:
+            pass
+    
+    if not user or not user.is_authenticated or isinstance(user, AnonymousUser):
+        return JsonResponse({'success': False, 'message': '未授权访问'}, status=401)
+    
+    # 获取主类型（level_type=1）
+    main_types = TestType.objects.filter(level_type=1).annotate(
+        task_count=Count('testtask')
+    ).order_by('code')
+    
+    result = []
+    for mt in main_types:
+        main_data = {
+            'id': mt.id,
+            'name': mt.name,
+            'code': mt.code,
+            'description': mt.description,
+            'level_type': mt.level_type,
+            'parent_id': mt.parent_id,
+            'created_at': mt.created_at.isoformat() if mt.created_at else None,
+            'task_count': mt.task_count,
+            'children': []
+        }
+        # 获取子类型
+        sub_types = TestType.objects.filter(parent_id=mt.id).annotate(
+            task_count=Count('testtask')
+        ).order_by('code')
+        for st in sub_types:
+            main_data['children'].append({
+                'id': st.id,
+                'name': st.name,
+                'code': st.code,
+                'description': st.description,
+                'level_type': st.level_type,
+                'parent_id': st.parent_id,
+                'created_at': st.created_at.isoformat() if st.created_at else None,
+                'task_count': st.task_count
+            })
+        result.append(main_data)
+    
+    return JsonResponse({'success': True, 'data': result, 'count': len(result)})
+
+
+def api_test_type_create(request):
+    """API: 创建试验类型"""
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    from django.contrib.auth.models import AnonymousUser
+    import json
+    
+    user = request.user
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        try:
+            validated = JWTAuthentication().authenticate(request)
+            if validated:
+                user, _ = validated
+        except:
+            pass
+    
+    if not user or not user.is_authenticated or isinstance(user, AnonymousUser):
+        return JsonResponse({'success': False, 'message': '未授权访问'}, status=401)
+    
+    if user.role not in ['manager', 'admin']:
+        return JsonResponse({'success': False, 'message': '权限不足'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name')
+            code = data.get('code')
+            description = data.get('description', '')
+            level_type = int(data.get('level_type', 1))
+            parent_id = data.get('parent_id')
+            is_active = data.get('is_active', True)
+            
+            if not name or not code:
+                return JsonResponse({'success': False, 'message': '名称和代码不能为空'}, status=400)
+            
+            if TestType.objects.filter(code=code).exists():
+                return JsonResponse({'success': False, 'message': '类型代码已存在'}, status=400)
+            
+            test_type = TestType.objects.create(
+                name=name,
+                code=code,
+                description=description,
+                level_type=level_type,
+                parent_id=parent_id if level_type == 2 else None,
+                is_active=is_active
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'data': {
+                    'id': test_type.id,
+                    'name': test_type.name,
+                    'code': test_type.code,
+                    'description': test_type.description,
+                    'level_type': test_type.level_type,
+                    'parent_id': test_type.parent_id,
+                    'is_active': test_type.is_active
+                }
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    
+    return JsonResponse({'success': False, 'message': '不支持的请求方法'}, status=405)
+
+
+def api_test_type_update(request, pk):
+    """API: 更新试验类型"""
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    from django.contrib.auth.models import AnonymousUser
+    import json
+    
+    user = request.user
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        try:
+            validated = JWTAuthentication().authenticate(request)
+            if validated:
+                user, _ = validated
+        except:
+            pass
+    
+    if not user or not user.is_authenticated or isinstance(user, AnonymousUser):
+        return JsonResponse({'success': False, 'message': '未授权访问'}, status=401)
+    
+    if user.role not in ['manager', 'admin']:
+        return JsonResponse({'success': False, 'message': '权限不足'}, status=403)
+    
+    try:
+        test_type = TestType.objects.get(pk=pk)
+    except TestType.DoesNotExist:
+        return JsonResponse({'success': False, 'message': '试验类型不存在'}, status=404)
+    
+    if request.method in ['POST', 'PUT']:
+        try:
+            data = json.loads(request.body)
+            
+            if 'name' in data:
+                test_type.name = data['name']
+            if 'code' in data:
+                new_code = data['code']
+                if new_code != test_type.code and TestType.objects.filter(code=new_code).exists():
+                    return JsonResponse({'success': False, 'message': '类型代码已存在'}, status=400)
+                test_type.code = new_code
+            if 'description' in data:
+                test_type.description = data['description']
+            if 'is_active' in data:
+                test_type.is_active = data['is_active']
+            
+            test_type.save()
+            
+            return JsonResponse({
+                'success': True,
+                'data': {
+                    'id': test_type.id,
+                    'name': test_type.name,
+                    'code': test_type.code,
+                    'description': test_type.description,
+                    'level_type': test_type.level_type,
+                    'parent_id': test_type.parent_id,
+                    'is_active': test_type.is_active
+                }
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)}, status=500)
+    
+    return JsonResponse({'success': False, 'message': '不支持的请求方法'}, status=405)
+
+
+def api_test_type_delete(request, pk):
+    """API: 删除试验类型"""
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    from django.contrib.auth.models import AnonymousUser
+    
+    user = request.user
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        try:
+            validated = JWTAuthentication().authenticate(request)
+            if validated:
+                user, _ = validated
+        except:
+            pass
+    
+    if not user or not user.is_authenticated or isinstance(user, AnonymousUser):
+        return JsonResponse({'success': False, 'message': '未授权访问'}, status=401)
+    
+    if user.role not in ['manager', 'admin']:
+        return JsonResponse({'success': False, 'message': '权限不足'}, status=403)
+    
+    try:
+        test_type = TestType.objects.get(pk=pk)
+    except TestType.DoesNotExist:
+        return JsonResponse({'success': False, 'message': '试验类型不存在'}, status=404)
+    
+    # 检查是否有任务关联
+    if test_type.testtask_set.exists():
+        return JsonResponse({'success': False, 'message': '该试验类型下存在任务，无法删除'}, status=400)
+    
+    test_type.delete()
+    return JsonResponse({'success': True, 'message': '删除成功'})
+
+
+def api_test_type_detail(request, pk):
+    """API: 获取试验类型详情"""
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+    from django.contrib.auth.models import AnonymousUser
+    
+    user = request.user
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        try:
+            validated = JWTAuthentication().authenticate(request)
+            if validated:
+                user, _ = validated
+        except:
+            pass
+    
+    if not user or not user.is_authenticated or isinstance(user, AnonymousUser):
+        return JsonResponse({'success': False, 'message': '未授权访问'}, status=401)
+    
+    try:
+        test_type = TestType.objects.get(pk=pk)
+    except TestType.DoesNotExist:
+        return JsonResponse({'success': False, 'message': '试验类型不存在'}, status=404)
+    
+    # 获取自定义字段
+    custom_fields = list(test_type.custom_fields.all().order_by('order').values(
+        'id', 'field_name', 'field_code', 'field_type', 'order', 
+        'is_required', 'is_active', 'is_batch_input_enabled', 'is_query_field', 'is_search_field',
+        'default_value', 'placeholder', 'help_text', 'field_options'
+    ))
+    
+    # 获取关联任务
+    tasks = test_type.testtask_set.all()[:5]
+    task_count = test_type.testtask_set.count()
+    
+    # 获取父类型
+    parent_name = test_type.parent.name if test_type.parent else None
+    
+    return JsonResponse({
+        'success': True,
+        'data': {
+            'test_type': {
+                'id': test_type.id,
+                'name': test_type.name,
+                'code': test_type.code,
+                'description': test_type.description,
+                'level_type': test_type.level_type,
+                'parent_id': test_type.parent_id,
+                'parent_name': parent_name,
+                'created_at': test_type.created_at.isoformat() if test_type.created_at else None,
+                'updated_at': test_type.updated_at.isoformat() if test_type.updated_at else None
+            },
+            'custom_fields': custom_fields,
+            'tasks': list(tasks.values('id', 'task_number', 'task_name', 'status__name')),
+            'task_count': task_count
+        }
+    })
+
+
 @login_required
 def test_type_list(request):
-    """试验类型列表"""
-    # 只有管理员和主任可以管理试验类型
+    """试验类型列表 (树形结构) - HTML页面"""
     if request.user.role not in ['manager', 'admin']:
         messages.error(request, '权限不足！')
         return redirect('tasks:dashboard')
         
     search_query = request.GET.get('search', '')
     
-    # 基础查询：所有试验类型
-    queryset = TestType.objects.all()
+    queryset = TestType.objects.filter(level_type=1)
     
-    # 搜索过滤
     if search_query:
         queryset = queryset.filter(
             Q(name__icontains=search_query) |
             Q(code__icontains=search_query) |
-            Q(description__icontains=search_query)
-        )
+            Q(description__icontains=search_query) |
+            Q(sub_types__name__icontains=search_query) |
+            Q(sub_types__code__icontains=search_query) |
+            Q(sub_types__description__icontains=search_query)
+        ).distinct()
     
-    # 排序：总类型在前，分类型在后；同级按代码排序
-    queryset = queryset.order_by('level_type', 'code')
+    queryset = queryset.order_by('code')
     
-    # 统计任务数量 (优化性能：使用annotate)
-    from django.db.models import Count
-    queryset = queryset.annotate(task_count=Count('testtask'))
+    from django.db.models import Count, Prefetch
     
-    # 分页
-    paginator = Paginator(queryset, 10)
+    sub_types_qs = TestType.objects.filter(level_type=2).annotate(
+        task_count=Count('testtask')
+    ).order_by('code')
+    
+    queryset = queryset.annotate(
+        task_count=Count('testtask')
+    ).prefetch_related(
+        Prefetch('sub_types', queryset=sub_types_qs)
+    )
+    
+    paginator = Paginator(queryset, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
     context = {
-        'test_types': page_obj,
         'page_obj': page_obj,
         'is_paginated': page_obj.has_other_pages(),
         'search_query': search_query,
@@ -466,8 +881,8 @@ def test_type_detail(request, pk):
     test_type = get_object_or_404(TestType, pk=pk)
     queryset = test_type.custom_fields.all().order_by('order')
     
-    # 分页处理
-    paginator = Paginator(queryset, 20)
+    # 分页处理 - 每页10条
+    paginator = Paginator(queryset, 10)
     page_number = request.GET.get('field_page')
     custom_fields = paginator.get_page(page_number)
     
@@ -533,6 +948,8 @@ def test_type_field_edit(request, field_id):
 def test_type_field_delete(request, field_id):
     """删除字段配置"""
     if request.user.role not in ['manager', 'admin']:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+             return JsonResponse({'success': False, 'message': '权限不足！'})
         messages.error(request, '权限不足！')
         return redirect('tasks:dashboard')
         
@@ -541,6 +958,11 @@ def test_type_field_delete(request, field_id):
     
     if request.method == 'POST':
         field.delete()
+        
+        # 兼容 AJAX 请求
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+            return JsonResponse({'success': True, 'message': '字段配置已删除！'})
+            
         messages.success(request, '字段配置已删除！')
         
     return redirect('tasks:test_type_detail', pk=test_type_id)
@@ -572,9 +994,24 @@ def get_sub_test_types(request):
     """API: 获取子试验类型"""
     parent_id = request.GET.get('parent_id')
     if parent_id:
-        sub_types = TestType.objects.filter(parent_id=parent_id).values('id', 'name')
-        return JsonResponse(list(sub_types), safe=False)
-    return JsonResponse([], safe=False)
+        try:
+            # 1. 获取该总类型下的所有子类型
+            sub_types = list(TestType.objects.filter(parent_id=parent_id).values('id', 'name'))
+            
+            # 2. 如果没有子类型，返回主类型自身（支持自动继承）
+            if not sub_types:
+                main_type = TestType.objects.get(id=parent_id)
+                sub_types = [{
+                    'id': main_type.id,
+                    'name': main_type.name,
+                    'is_inherited': True  # 标记为继承配置
+                }]
+            
+            return JsonResponse({'success': True, 'data': sub_types})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+            
+    return JsonResponse({'success': False, 'message': '缺少parent_id参数'})
 
 
 # ==================== 子任务管理 ====================
@@ -584,35 +1021,132 @@ def task_decompose(request, task_id):
     """任务分解 - 创建子任务"""
     task = get_object_or_404(TestTask, id=task_id)
     
-    # 权限检查
     if request.user.role not in ['manager', 'admin']:
         messages.error(request, '只有试验室主任可以分解任务！')
         return redirect('tasks:task_detail', task_id=task.id)
     
-    if request.method == 'POST':
-        form = TaskDecomposeForm(request.POST)
+    if request.method == 'POST' and 'add_subtask' not in request.POST:
+        form = TaskDecomposeForm(request.POST, task=task)
         if form.is_valid():
-            # 创建子任务
-            subtask_count = int(form.cleaned_data['subtask_count'])
-            # 这里可以添加更复杂的逻辑，根据选择的试验类型创建不同的子任务
+            selected_types = form.cleaned_data['test_types']
+            created_count = 0
+            created_subtasks = []
+            error_details = []
             
-            # 为了简化，这里先重定向到子任务列表，实际应该在页面上动态添加子任务表单
-            messages.info(request, '功能开发中...')
-            return redirect('tasks:task_detail', task_id=task.id)
+            if len(selected_types) > 50:
+                return JsonResponse({
+                    'success': False,
+                    'message': '一次最多只能批量创建50个子任务！',
+                    'error_code': 'LIMIT_EXCEEDED'
+                }, status=400)
+
+            if len(selected_types) == 0:
+                return JsonResponse({
+                    'success': False,
+                    'message': '请至少选择一个试验类型！',
+                    'error_code': 'EMPTY_SELECTION'
+                }, status=400)
+
+            try:
+                with transaction.atomic():
+                    # 子任务状态继承主任务状态
+                    subtask_status = task.status
+                    
+                    # 如果主任务状态不是有效的子任务初始状态，则使用默认状态
+                    if not subtask_status:
+                        try:
+                            subtask_status = TaskStatus.objects.get(code='pending')
+                        except TaskStatus.DoesNotExist:
+                            subtask_status = TaskStatus.objects.first()
+                    
+                    if not subtask_status:
+                        raise Exception("系统中未配置任务状态，请联系管理员")
+                    
+                    for idx, test_type in enumerate(selected_types, 1):
+                        try:
+                            count = task.subtasks.count() + 1
+                            subtask = SubTask(
+                                parent_task=task,
+                                subtask_number=f"{task.task_number}-SUB{count:02d}",
+                                subtask_name=f"{task.task_name} - {test_type.name}",
+                                test_type=test_type,
+                                status=subtask_status,
+                                assignee=task.assignee,
+                                description=f"根据主任务分解的 {test_type.name} 子任务",
+                                start_date=task.start_date,
+                                end_date=task.end_date
+                            )
+                            subtask.save()
+                            created_count += 1
+                            created_subtasks.append({
+                                'id': subtask.id,
+                                'subtask_number': subtask.subtask_number,
+                                'name': subtask.subtask_name,
+                                'test_type': subtask.test_type.name,
+                                'status': subtask.status.name,
+                                'assignee': subtask.assignee.username if subtask.assignee else '未分配'
+                            })
+                        except Exception as e:
+                            error_details.append({
+                                'index': idx,
+                                'test_type': test_type.name,
+                                'error': str(e)
+                            })
+                            raise
+                            
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                # 如果没有记录到具体错误，将外层异常也加入
+                if not error_details:
+                    error_details.append({
+                        'index': 0,
+                        'test_type': '系统初始化',
+                        'error': str(e)
+                    })
+                return JsonResponse({
+                    'success': False, 
+                    'message': f'批量创建失败，已回滚所有操作：{str(e)}',
+                    'error_code': 'TRANSACTION_ROLLBACK',
+                    'error_details': error_details,
+                    'total_attempted': len(selected_types)
+                }, status=500)
+            
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                new_subtask_ids = [st['id'] for st in created_subtasks]
+                return JsonResponse({
+                    'success': True,
+                    'message': f'成功分解出 {created_count} 个子任务！',
+                    'created_subtasks': created_subtasks,
+                    'new_subtask_ids': new_subtask_ids,
+                    'redirect_url': reverse('tasks:task_detail', args=[task.id])
+                })
+            
+            messages.success(request, f'成功分解出 {created_count} 个子任务！')
+            return redirect('tasks:task_decompose', task_id=task.id)
+        else:
+             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                 error_msg = []
+                 for field, errors in form.errors.items():
+                     error_msg.append(f"{field}: {'; '.join(errors)}")
+                 
+                 return JsonResponse({
+                     'success': False,
+                     'message': '表单验证失败：' + ' | '.join(error_msg),
+                     'error_code': 'FORM_VALIDATION_ERROR',
+                     'errors': form.errors
+                 }, status=400)
     else:
-        form = TaskDecomposeForm()
+        form = TaskDecomposeForm(task=task)
         
-    # 获取已有的子任务
-    subtasks = task.subtasks.all()
+    subtasks = task.subtasks.all().order_by('-created_at')
     
-    # 处理添加子任务的请求
     if 'add_subtask' in request.POST:
         sub_form = SubTaskForm(request.POST)
         if sub_form.is_valid():
             subtask = sub_form.save(commit=False)
             subtask.parent_task = task
             subtask.status = TaskStatus.objects.get(code='pending')
-            # 生成子任务编号
             count = task.subtasks.count() + 1
             subtask.subtask_number = f"{task.task_number}-SUB{count:02d}"
             subtask.save()
@@ -624,7 +1158,8 @@ def task_decompose(request, task_id):
     return render(request, 'tasks/task_decompose.html', {
         'task': task,
         'subtasks': subtasks,
-        'sub_form': sub_form
+        'sub_form': sub_form,
+        'form': form
     })
 
 
@@ -695,8 +1230,9 @@ def subtask_delete(request, subtask_id):
     if request.method == 'POST':
         subtask.delete()
         messages.success(request, '子任务已删除！')
+        return redirect('tasks:task_detail', task_id=task_id)
         
-    return redirect('tasks:task_decompose', task_id=task_id)
+    return redirect('tasks:task_detail', task_id=task_id)
 
 
 @login_required
@@ -1107,9 +1643,10 @@ def test_data_list(request):
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     keyword = request.GET.get('keyword')
+    sub_search = request.GET.get('sub_search')  # 新增子任务搜索参数
     
-    # 确定查询模式：如果选择了子任务类型，则查询子任务；否则查询主任务
-    mode = 'subtask' if sub_type_id else 'maintask'
+    # 强制使用子任务模式
+    mode = 'subtask'
     
     # 获取试验类型下拉选项
     main_types = TestType.objects.filter(level_type=1)
@@ -1118,72 +1655,114 @@ def test_data_list(request):
     statuses = TaskStatus.objects.all().order_by('id')
     
     data_list = []
+    query_fields = []  # 动态查询字段
     
-    if mode == 'maintask':
-        # 查询主任务
-        queryset = TestTask.objects.select_related(
-            'test_type', 'status', 'priority', 'requester', 'assignee'
-        ).all()
+    # 查询子任务
+    queryset = SubTask.objects.select_related(
+        'test_type', 'status', 'parent_task', 'assignee', 'test_data'
+    ).all()
+    
+    if sub_type_id:
+        queryset = queryset.filter(test_type_id=sub_type_id)
         
-        # 筛选条件
-        if main_type_id:
-            queryset = queryset.filter(test_type_id=main_type_id)
-            
-        if start_date:
-            queryset = queryset.filter(created_at__date__gte=start_date)
-            
-        if end_date:
-            queryset = queryset.filter(created_at__date__lte=end_date)
-            
-        if keyword:
-            queryset = queryset.filter(
-                Q(task_number__icontains=keyword) | 
-                Q(task_name__icontains=keyword)
-            )
+        # 1. 获取动态列配置 (is_query_field=True)
+        # 首先尝试获取用户自定义配置
+        from .models_ext import UserFieldConfig
+        user_config = UserFieldConfig.objects.filter(
+            user=request.user, 
+            test_type_id=sub_type_id
+        ).first()
         
-        # 状态筛选
-        status_id = request.GET.get('status_id')
-        if status_id:
-            queryset = queryset.filter(status_id=status_id)
-            
-        # 默认查询条件：所有未完成的任务（不限制月份，避免跨月无数据）
-        # 注意：如果用户主动选择了状态，就不应用默认排除已完成的逻辑
-        if not any([main_type_id, start_date, end_date, keyword, status_id]):
-            queryset = queryset.exclude(status__code__in=['completed', 'reviewed', 'cancelled'])
-            
-        # 预加载报告和文件信息，优化查询
-        queryset = queryset.prefetch_related('reports')
+        # 获取所有可用字段（用于后续过滤）
+        all_fields = TestTypeField.objects.filter(
+            test_type_id=sub_type_id,
+            is_active=True
+        ).order_by('order')
         
-        data_list = queryset.order_by('-created_at')
+        if user_config and user_config.config_data.get('display_fields'):
+            # 如果有用户配置，按用户配置顺序加载字段
+            display_field_codes = user_config.config_data['display_fields']
+            # 构建 {code: field} 映射
+            field_map = {f.field_code: f for f in all_fields}
+            # 按配置顺序提取字段对象
+            query_fields = []
+            for code in display_field_codes:
+                if code in field_map:
+                    query_fields.append(field_map[code])
+        else:
+            # 默认逻辑：使用系统默认的 is_query_field=True
+            query_fields = [f for f in all_fields if f.is_query_field]
         
-    else:
-        # 查询子任务
-        queryset = SubTask.objects.select_related(
-            'test_type', 'status', 'parent_task', 'assignee'
-        ).all()
+        # 2. 动态搜索逻辑 (request.GET 中的动态参数)
+        # 获取配置为搜索的字段
+        search_fields = TestTypeField.objects.filter(
+            test_type_id=sub_type_id,
+            is_search_field=True,
+            is_active=True
+        ).order_by('order')
         
-        if sub_type_id:
-            queryset = queryset.filter(test_type_id=sub_type_id)
-            
-        if start_date:
-            queryset = queryset.filter(created_at__date__gte=start_date)
-            
-        if end_date:
-            queryset = queryset.filter(created_at__date__lte=end_date)
-            
-        if keyword:
-            queryset = queryset.filter(
-                Q(subtask_number__icontains=keyword) | 
-                Q(subtask_name__icontains=keyword) |
-                Q(parent_task__task_number__icontains=keyword)
-            )
+        # 获取用户配置的搜索字段（如果有）
+        if user_config and user_config.config_data.get('search_fields'):
+             search_codes = user_config.config_data.get('search_fields')
+             search_fields = [f for f in search_fields if f.field_code in search_codes]
 
-        # 状态筛选
-        status_id = request.GET.get('status_id')
-        if status_id:
-            queryset = queryset.filter(status_id=status_id)
-            
-        data_list = queryset.order_by('-created_at')
+        # 遍历请求参数，匹配搜索字段
+        for field in search_fields:
+            field_val = request.GET.get(field.field_code)
+            if field_val:
+                # 构建查询条件
+                if field.field_type in ['text', 'textarea', 'rich_text']:
+                    queryset = queryset.filter(**{f"test_data__test_data__{field.field_code}__icontains": field_val})
+                elif field.field_type == 'select':
+                    queryset = queryset.filter(**{f"test_data__test_data__{field.field_code}": field_val})
+                elif field.field_type in ['number', 'decimal']:
+                    # 数值范围查询 (格式: min-max)
+                    if '-' in field_val:
+                        try:
+                            min_val, max_val = field_val.split('-')
+                            if min_val:
+                                queryset = queryset.filter(**{f"test_data__test_data__{field.field_code}__gte": float(min_val)})
+                            if max_val:
+                                queryset = queryset.filter(**{f"test_data__test_data__{field.field_code}__lte": float(max_val)})
+                        except ValueError:
+                            pass
+                    else:
+                        # 精确匹配
+                        queryset = queryset.filter(**{f"test_data__test_data__{field.field_code}": field_val})
+                elif field.field_type in ['date', 'datetime']:
+                    # 日期范围查询 (格式: start,end)
+                    if ',' in field_val:
+                        start, end = field_val.split(',')
+                        if start:
+                            queryset = queryset.filter(**{f"test_data__test_data__{field.field_code}__gte": start})
+                        if end:
+                            queryset = queryset.filter(**{f"test_data__test_data__{field.field_code}__lte": end})
+                    else:
+                        queryset = queryset.filter(**{f"test_data__test_data__{field.field_code}": field_val})
+
+    if start_date:
+        queryset = queryset.filter(created_at__date__gte=start_date)
+        
+    if end_date:
+        queryset = queryset.filter(created_at__date__lte=end_date)
+        
+    if keyword:
+        queryset = queryset.filter(
+            Q(subtask_number__icontains=keyword) | 
+            Q(subtask_name__icontains=keyword) |
+            Q(parent_task__task_number__icontains=keyword)
+        )
+
+    # 状态筛选
+    status_id = request.GET.get('status_id')
+    if status_id:
+        queryset = queryset.filter(status_id=status_id)
+        
+    # 默认查询条件：如果没有任何筛选条件，仅显示未完成的子任务
+    if not any([sub_type_id, start_date, end_date, keyword, status_id]):
+         queryset = queryset.exclude(status__code__in=['completed', 'cancelled'])
+
+    data_list = queryset.order_by('-created_at')
 
     # 导出功能
     if request.GET.get('export') == 'excel':
@@ -1199,17 +1778,24 @@ def test_data_list(request):
         'sub_types': sub_types,
         'statuses': statuses,
         'mode': mode,
+        'query_fields': query_fields,  # 传递动态列
         'filters': {
             'main_type_id': main_type_id,
             'sub_type_id': sub_type_id,
             'start_date': start_date,
             'end_date': end_date,
             'keyword': keyword,
-            'status_id': request.GET.get('status_id')
+            'status_id': request.GET.get('status_id'),
+            'sub_search': sub_search,
         }
     }
     
+    # AJAX 请求返回局部模板
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return render(request, 'tasks/test_data_list_partial.html', context)
+    
     return render(request, 'tasks/test_data_list.html', context)
+
 
 
 def export_tasks_excel(queryset, mode):
@@ -1804,15 +2390,28 @@ def task_process_update(request, task_id):
 def task_process_history(request, task_id):
     """获取试验过程历史记录"""
     task = get_object_or_404(TestTask, id=task_id)
-    history_list = task.process_history.select_related('updated_by').all()[:20] # 最近20条
     
-    data = []
-    for h in history_list:
-        data.append({
-            'id': h.id,
-            'updated_by': h.updated_by.username if h.updated_by else '未知',
-            'created_at': h.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'content': h.content  # 返回完整内容以便恢复或查看
+    # 权限检查：只有能查看任务的人才能查看历史
+    if request.user.role == 'guest' and task.requester != request.user:
+        return JsonResponse({'success': False, 'message': '权限不足'})
+    if request.user.role == 'engineer' and task.assignee != request.user and task.requester != request.user:
+        return JsonResponse({'success': False, 'message': '权限不足'})
+        
+    history_list = []
+    for h in task.process_history.all():
+        history_list.append({
+            'updated_by': h.updated_by.username if h.updated_by else 'Unknown',
+            'created_at': h.created_at.strftime('%Y-%m-%d %H:%M'),
+            'content': h.content
         })
         
-    return JsonResponse({'success': True, 'history': data})
+    return JsonResponse({
+        'success': True,
+        'history': history_list
+    })
+
+
+@login_required
+def test_data_list_partial(request):
+    """试验数据管理 - 任务查询 (局部刷新)"""
+    return test_data_list(request)
